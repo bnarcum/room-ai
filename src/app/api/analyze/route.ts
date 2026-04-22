@@ -9,12 +9,17 @@ import {
   type RoomAnalysis,
 } from "@/lib/roomAnalysis";
 
+import type { LanguageModel } from "ai";
+
 export const runtime = "nodejs";
 
 /** Vision + structured output can exceed the default 10s on Vercel; raise where your plan allows. */
 export const maxDuration = 120;
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
+
+/** Backoff between retries when the provider returns overload / rate-limit style errors. */
+const RETRY_WAIT_MS = [2000, 5000, 10000];
 
 /** Retired `-latest` / old Sonnet aliases still show up in Vercel env and break at runtime. */
 /** Empty / whitespace env vars should fall through to the next provider option. */
@@ -74,6 +79,29 @@ function isImageLike(type: string): boolean {
     type.startsWith("image/") ||
     type === "application/octet-stream" // some browsers omit a proper mime type
   );
+}
+
+function isTransientProviderError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("high demand") ||
+    m.includes("overloaded") ||
+    m.includes("capacity") ||
+    m.includes("rate limit") ||
+    m.includes("too many requests") ||
+    m.includes("temporarily") ||
+    m.includes("try again later") ||
+    m.includes("503") ||
+    m.includes("529") ||
+    m.includes("429") ||
+    /\b503\b/.test(message) ||
+    /\b529\b/.test(message) ||
+    /\b429\b/.test(message)
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function POST(request: Request) {
@@ -164,26 +192,71 @@ export async function POST(request: Request) {
     .filter(Boolean)
     .join("\n");
 
-  try {
-    const { output } = await generateText({
-      model: chosen.model,
-      system,
-      output: Output.object({
-        schema: roomAnalysisSchema,
-        name: "RoomAnalysis",
-        description:
-          "Estimated room dimensions and collaboration-room improvement recommendations.",
-      }),
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: userText },
-            { type: "image", image: dataUrl, mediaType },
-          ],
-        },
+  const outputConfig = Output.object({
+    schema: roomAnalysisSchema,
+    name: "RoomAnalysis",
+    description:
+      "Estimated room dimensions and collaboration-room improvement recommendations.",
+  });
+
+  const messages = [
+    {
+      role: "user" as const,
+      content: [
+        { type: "text" as const, text: userText },
+        { type: "image" as const, image: dataUrl, mediaType },
       ],
-    });
+    },
+  ];
+
+  async function runModel(model: LanguageModel): Promise<{ output: unknown }> {
+    let lastErr: unknown;
+    const maxAttempts = 1 + RETRY_WAIT_MS.length;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        return await generateText({
+          model,
+          system,
+          output: outputConfig,
+          messages,
+        });
+      } catch (err) {
+        lastErr = err;
+        const msg = err instanceof Error ? err.message : String(err);
+        const canRetry =
+          isTransientProviderError(msg) && attempt < maxAttempts - 1;
+        if (!canRetry) throw err;
+        await sleep(RETRY_WAIT_MS[attempt] ?? 2000);
+      }
+    }
+    throw lastErr;
+  }
+
+  try {
+    let usedModelId = chosen.modelId;
+    let result: { output: unknown };
+
+    try {
+      result = await runModel(chosen.model);
+    } catch (firstErr) {
+      const msg =
+        firstErr instanceof Error ? firstErr.message : String(firstErr);
+      if (
+        chosen.provider !== "anthropic" ||
+        !isTransientProviderError(msg)
+      ) {
+        throw firstErr;
+      }
+      const fallbackId =
+        process.env.ANTHROPIC_FALLBACK_MODEL?.trim() || "claude-haiku-4-5";
+      if (fallbackId === chosen.modelId) {
+        throw firstErr;
+      }
+      usedModelId = fallbackId;
+      result = await runModel(anthropic(fallbackId));
+    }
+
+    const { output } = result;
 
     // extra runtime validation (defensive in case provider returns partial)
     const parsed = roomAnalysisSchema.safeParse(output);
@@ -198,7 +271,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: true,
-        meta: { provider: chosen.provider, model: chosen.modelId },
+        meta: { provider: chosen.provider, model: usedModelId },
         data,
       },
       { status: 200 }
