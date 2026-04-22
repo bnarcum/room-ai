@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type AnalyzeResponse =
-  | { ok: true; data: unknown }
+  | { ok: true; meta?: { provider?: string; model?: string }; data: unknown }
   | { ok: false; error: string };
 
 export default function Home() {
@@ -69,7 +69,7 @@ export default function Home() {
     }
 
     setStatus("done");
-    const encoded = encodeURIComponent(btoa(JSON.stringify(json.data)));
+    const encoded = encodeURIComponent(btoa(JSON.stringify(json)));
     router.push(`/results?data=${encoded}`);
   }
 

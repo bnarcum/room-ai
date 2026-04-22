@@ -16,23 +16,29 @@ const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 function pickVisionModel() {
   // Priority order: Claude (Anthropic) -> Gemini (Google) -> OpenAI
   if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) {
+    const modelId = process.env.ANTHROPIC_MODEL ?? "claude-3-5-sonnet-latest";
     return {
       provider: "anthropic" as const,
-      model: anthropic(process.env.ANTHROPIC_MODEL ?? "claude-3-5-sonnet-latest"),
+      modelId,
+      model: anthropic(modelId),
     };
   }
 
   if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    const modelId = process.env.GOOGLE_MODEL ?? "gemini-2.5-flash";
     return {
       provider: "google" as const,
-      model: google(process.env.GOOGLE_MODEL ?? "gemini-2.5-flash"),
+      modelId,
+      model: google(modelId),
     };
   }
 
   if (process.env.OPENAI_API_KEY) {
+    const modelId = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
     return {
       provider: "openai" as const,
-      model: openai(process.env.OPENAI_MODEL ?? "gpt-4o-mini"),
+      modelId,
+      model: openai(modelId),
     };
   }
 
@@ -169,7 +175,14 @@ export async function POST(request: Request) {
     }
 
     const data: RoomAnalysis = parsed.data;
-    return NextResponse.json({ ok: true, data }, { status: 200 });
+    return NextResponse.json(
+      {
+        ok: true,
+        meta: { provider: chosen.provider, model: chosen.modelId },
+        data,
+      },
+      { status: 200 }
+    );
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Unknown error during analysis.";

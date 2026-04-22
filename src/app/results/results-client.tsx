@@ -3,21 +3,26 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import type { RoomAnalysis } from "@/lib/roomAnalysis";
 
 function decodeDataParam(dataParam: string): unknown {
   const json = atob(decodeURIComponent(dataParam));
   return JSON.parse(json) as unknown;
 }
 
+type AnalyzeEnvelope =
+  | { ok: true; meta?: { provider?: string; model?: string }; data: RoomAnalysis }
+  | { ok: false; error: string };
+
 export default function ResultsClient() {
   const params = useSearchParams();
   const dataParam = params.get("data");
   const [copied, setCopied] = useState(false);
 
-  const decoded = useMemo(() => {
+  const decoded = useMemo((): AnalyzeEnvelope | null => {
     if (!dataParam) return null;
     try {
-      return decodeDataParam(dataParam);
+      return decodeDataParam(dataParam) as AnalyzeEnvelope;
     } catch {
       return null;
     }
@@ -31,6 +36,9 @@ export default function ResultsClient() {
       return null;
     }
   }, [decoded]);
+
+  const analysis = decoded && decoded.ok ? decoded.data : null;
+  const meta = decoded && decoded.ok ? decoded.meta : null;
 
   async function onCopyLink() {
     try {
@@ -77,6 +85,10 @@ export default function ResultsClient() {
             <div className="mt-6 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
               No results found in the URL. Go back and analyze a photo.
             </div>
+          ) : decoded.ok === false ? (
+            <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+              {decoded.error}
+            </div>
           ) : (
             <>
               <div className="mt-6 flex flex-wrap gap-2">
@@ -95,6 +107,112 @@ export default function ResultsClient() {
                   Download JSON
                 </button>
               </div>
+
+              {analysis ? (
+                <div className="mt-6 grid gap-6">
+                  <div className="rounded-xl border border-zinc-200 bg-white p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-sm font-medium">Estimated dimensions</div>
+                      {meta?.model ? (
+                        <div className="text-xs text-zinc-500">
+                          Model: {meta.model}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="mt-3 grid gap-2 text-sm">
+                      <div className="flex flex-wrap gap-x-6 gap-y-1">
+                        <div>
+                          <span className="text-zinc-500">Length:</span>{" "}
+                          <span className="font-semibold">
+                            {analysis.dimensions.length} {analysis.dimensions.unit}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-500">Width:</span>{" "}
+                          <span className="font-semibold">
+                            {analysis.dimensions.width} {analysis.dimensions.unit}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-500">Height:</span>{" "}
+                          <span className="font-semibold">
+                            {analysis.dimensions.height} {analysis.dimensions.unit}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-zinc-500">
+                        Confidence:{" "}
+                        {Math.round(analysis.dimensions.confidence * 100)}% —{" "}
+                        {analysis.dimensions.reasoning}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+                    <div className="text-sm font-medium">Room summary</div>
+                    <div className="mt-2 grid gap-2 text-sm">
+                      <div>
+                        <span className="text-zinc-500">Likely use:</span>{" "}
+                        <span className="font-semibold">
+                          {analysis.roomSummary.likelyUse}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-zinc-500">Occupancy:</span>{" "}
+                        <span className="font-semibold">
+                          {analysis.roomSummary.occupancy}
+                        </span>
+                      </div>
+                      <div className="text-xs text-zinc-600">
+                        <div className="font-medium text-zinc-700">
+                          Key constraints
+                        </div>
+                        <ul className="mt-1 list-disc pl-5">
+                          {analysis.roomSummary.keyConstraints.map((c, i) => (
+                            <li key={i}>{c}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-zinc-200 bg-white p-4">
+                    <div className="text-sm font-medium">Recommendations</div>
+                    <div className="mt-3 grid gap-4 md:grid-cols-2">
+                      {(
+                        [
+                          ["Camera", analysis.recommendations.camera],
+                          ["Lighting", analysis.recommendations.lighting],
+                          ["Acoustics", analysis.recommendations.acoustics],
+                          ["Display", analysis.recommendations.display],
+                          ["Seating", analysis.recommendations.seating],
+                          ["Cabling", analysis.recommendations.cabling],
+                          ["Network", analysis.recommendations.network],
+                          ["Power", analysis.recommendations.power],
+                        ] as const
+                      ).map(([title, items]) => (
+                        <div key={title} className="rounded-lg border border-zinc-200 p-3">
+                          <div className="text-sm font-semibold">{title}</div>
+                          <ul className="mt-2 list-disc pl-5 text-sm text-zinc-700">
+                            {items.map((it, i) => (
+                              <li key={i}>{it}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-zinc-200 bg-zinc-950 p-4 text-zinc-100">
+                    <div className="text-sm font-medium">Quick checklist</div>
+                    <ul className="mt-2 list-disc pl-5 text-sm text-zinc-200">
+                      {analysis.quickChecklist.map((it, i) => (
+                        <li key={i}>{it}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="mt-6">
                 <div className="text-sm font-medium">Raw output</div>
