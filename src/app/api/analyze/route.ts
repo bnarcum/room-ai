@@ -71,7 +71,8 @@ function buildVisionChain(): VisionStep[] {
   }
 
   if (envPresent("GOOGLE_GENERATIVE_AI_API_KEY")) {
-    const modelId = process.env.GOOGLE_MODEL?.trim() || "gemini-2.0-flash";
+    // gemini-2.0-flash is not offered to new API users; default to current Flash.
+    const modelId = process.env.GOOGLE_MODEL?.trim() || "gemini-2.5-flash";
     add({ provider: "google", modelId, model: google(modelId) });
   }
 
