@@ -12,15 +12,13 @@ Built with Next.js (App Router) and the Vercel AI SDK.
 
 ### 1) Configure environment variables
 
-Create `.env.local` in the project root. You need **at least one** provider key. For **reliability when a model is overloaded**, add **more than one** (tried in order: Anthropic → Google → OpenAI):
+Create `.env.local` in the project root with your **Anthropic** API key (**Claude only**):
 
 ```bash
-# Primary (recommended)
 ANTHROPIC_API_KEY=your_key_here
-
-# Optional failovers (used if the previous provider is rate-limited or busy)
-# GOOGLE_GENERATIVE_AI_API_KEY=your_key_here
-# OPENAI_API_KEY=your_key_here
+# Optional:
+# ANTHROPIC_MODEL=claude-sonnet-4-6
+# ANTHROPIC_FALLBACK_MODEL=claude-haiku-4-5   # used if primary is overloaded
 ```
 
 ### 2) Install and run
@@ -37,8 +35,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 - Push this repo to GitHub
 - Import it in Vercel
-- Add your provider key to Vercel Project Environment Variables:
-  - `ANTHROPIC_API_KEY` (Claude) or `GOOGLE_GENERATIVE_AI_API_KEY` (Gemini) or `OPENAI_API_KEY`
+- Add **`ANTHROPIC_API_KEY`** (and optionally `ANTHROPIC_MODEL` / `ANTHROPIC_FALLBACK_MODEL`) to Vercel Environment Variables.
 - Deploy
 
 ## Notes / limitations
@@ -46,7 +43,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - Dimension estimates from a **single photo** are inherently rough. Including a reference object (credit card, paper, or known ceiling height) improves the estimate.
 - v1 does not store photos server-side; it sends the image to the model for analysis and returns structured JSON.
 - **Anthropic**: if you set `ANTHROPIC_MODEL` on Vercel, use a current API model id (for example `claude-sonnet-4-6`). Old aliases such as `claude-3-5-sonnet-latest` often stop working when Anthropic retires them.
-- **Overload**: if Claude hits “high demand”, configure **`GOOGLE_GENERATIVE_AI_API_KEY`** and/or **`OPENAI_API_KEY`** so the API can automatically fall back without waiting on retries alone. The default Gemini id is **`gemini-2.5-flash`**; override with **`GOOGLE_MODEL`** if you use a different model.
+- **Overload**: if the primary Claude model hits “high demand”, the API retries with backoff and can use **`ANTHROPIC_FALLBACK_MODEL`** (default Haiku). You can remove unused **`GOOGLE_*`** / **`OPENAI_*`** vars from Vercel; they are ignored.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 

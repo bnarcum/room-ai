@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateText, Output } from "ai";
-import { openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
-import { google } from "@ai-sdk/google";
 import {
   buildWebexStyleRubric,
   roomAnalysisSchema,
@@ -24,7 +22,7 @@ const RETRY_WAIT_MS = [2000, 5000, 10000];
 const FAILOVER_RETRY_MS = [2500];
 
 /** Retired `-latest` / old Sonnet aliases still show up in Vercel env and break at runtime. */
-/** Empty / whitespace env vars should fall through to the next provider option. */
+/** Empty / whitespace env vars are treated as unset. */
 function envPresent(key: string): boolean {
   const v = process.env[key];
   return typeof v === "string" && v.trim().length > 0;
@@ -40,45 +38,31 @@ function resolveAnthropicModelId(explicit: string | undefined): string {
 }
 
 type VisionStep = {
-  provider: "anthropic" | "google" | "openai";
   modelId: string;
   model: LanguageModel;
 };
 
-/** Ordered failover when one provider is overloaded or rate-limited. */
+/** Primary Claude model, then optional Haiku fallback if Anthropic is overloaded. */
 function buildVisionChain(): VisionStep[] {
   const chain: VisionStep[] = [];
   const dedupe = new Set<string>();
 
   function add(step: VisionStep) {
-    const key = `${step.provider}:${step.modelId}`;
-    if (dedupe.has(key)) return;
-    dedupe.add(key);
+    if (dedupe.has(step.modelId)) return;
+    dedupe.add(step.modelId);
     chain.push(step);
   }
 
   if (envPresent("ANTHROPIC_API_KEY") || envPresent("ANTHROPIC_AUTH_TOKEN")) {
     const primary = resolveAnthropicModelId(process.env.ANTHROPIC_MODEL);
     add({
-      provider: "anthropic",
       modelId: primary,
       model: anthropic(primary),
     });
     const fb = process.env.ANTHROPIC_FALLBACK_MODEL?.trim() || "claude-haiku-4-5";
     if (fb !== primary) {
-      add({ provider: "anthropic", modelId: fb, model: anthropic(fb) });
+      add({ modelId: fb, model: anthropic(fb) });
     }
-  }
-
-  if (envPresent("GOOGLE_GENERATIVE_AI_API_KEY")) {
-    // gemini-2.0-flash is not offered to new API users; default to current Flash.
-    const modelId = process.env.GOOGLE_MODEL?.trim() || "gemini-2.5-flash";
-    add({ provider: "google", modelId, model: google(modelId) });
-  }
-
-  if (envPresent("OPENAI_API_KEY")) {
-    const modelId = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
-    add({ provider: "openai", modelId, model: openai(modelId) });
   }
 
   return chain;
@@ -128,7 +112,7 @@ export async function POST(request: Request) {
       {
         ok: false,
         error:
-          "Missing API key. Set one of: ANTHROPIC_API_KEY (Claude), GOOGLE_GENERATIVE_AI_API_KEY (Gemini), or OPENAI_API_KEY.",
+          "Missing ANTHROPIC_API_KEY. This app uses Claude only — add your Anthropic API key in the environment.",
       },
       { status: 500 }
     );
@@ -267,13 +251,13 @@ export async function POST(request: Request) {
         break;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        errors.push(`${step.provider}/${step.modelId}: ${msg}`);
+        errors.push(`${step.modelId}: ${msg}`);
         const canFailover =
           i < visionChain.length - 1 && isTransientProviderError(msg);
         if (!canFailover) {
           throw new Error(
             errors.length > 1
-              ? `All providers were busy or failed:\n${errors.join("\n")}`
+              ? `Claude models could not complete the request:\n${errors.join("\n")}`
               : msg
           );
         }
@@ -283,7 +267,7 @@ export async function POST(request: Request) {
     if (!result || !successStep) {
       throw new Error(
         errors.length > 0
-          ? `All providers were busy or failed:\n${errors.join("\n")}`
+          ? `Claude models could not complete the request:\n${errors.join("\n")}`
           : "Unknown error during analysis."
       );
     }
@@ -304,7 +288,7 @@ export async function POST(request: Request) {
       {
         ok: true,
         meta: {
-          provider: successStep.provider,
+          provider: "anthropic",
           model: successStep.modelId,
         },
         data,
