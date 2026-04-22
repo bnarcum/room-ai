@@ -20,6 +20,8 @@ const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 
 /** Backoff between retries when the provider returns overload / rate-limit style errors. */
 const RETRY_WAIT_MS = [2000, 5000, 10000];
+/** Lighter retries when failing over to the next provider (stay within serverless time limits). */
+const FAILOVER_RETRY_MS = [2500];
 
 /** Retired `-latest` / old Sonnet aliases still show up in Vercel env and break at runtime. */
 /** Empty / whitespace env vars should fall through to the next provider option. */
@@ -37,36 +39,48 @@ function resolveAnthropicModelId(explicit: string | undefined): string {
   return id;
 }
 
-function pickVisionModel() {
-  // Priority order: Claude (Anthropic) -> Gemini (Google) -> OpenAI
+type VisionStep = {
+  provider: "anthropic" | "google" | "openai";
+  modelId: string;
+  model: LanguageModel;
+};
+
+/** Ordered failover when one provider is overloaded or rate-limited. */
+function buildVisionChain(): VisionStep[] {
+  const chain: VisionStep[] = [];
+  const dedupe = new Set<string>();
+
+  function add(step: VisionStep) {
+    const key = `${step.provider}:${step.modelId}`;
+    if (dedupe.has(key)) return;
+    dedupe.add(key);
+    chain.push(step);
+  }
+
   if (envPresent("ANTHROPIC_API_KEY") || envPresent("ANTHROPIC_AUTH_TOKEN")) {
-    const modelId = resolveAnthropicModelId(process.env.ANTHROPIC_MODEL);
-    return {
-      provider: "anthropic" as const,
-      modelId,
-      model: anthropic(modelId),
-    };
+    const primary = resolveAnthropicModelId(process.env.ANTHROPIC_MODEL);
+    add({
+      provider: "anthropic",
+      modelId: primary,
+      model: anthropic(primary),
+    });
+    const fb = process.env.ANTHROPIC_FALLBACK_MODEL?.trim() || "claude-haiku-4-5";
+    if (fb !== primary) {
+      add({ provider: "anthropic", modelId: fb, model: anthropic(fb) });
+    }
   }
 
   if (envPresent("GOOGLE_GENERATIVE_AI_API_KEY")) {
-    const modelId = process.env.GOOGLE_MODEL ?? "gemini-2.5-flash";
-    return {
-      provider: "google" as const,
-      modelId,
-      model: google(modelId),
-    };
+    const modelId = process.env.GOOGLE_MODEL?.trim() || "gemini-2.0-flash";
+    add({ provider: "google", modelId, model: google(modelId) });
   }
 
   if (envPresent("OPENAI_API_KEY")) {
-    const modelId = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
-    return {
-      provider: "openai" as const,
-      modelId,
-      model: openai(modelId),
-    };
+    const modelId = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+    add({ provider: "openai", modelId, model: openai(modelId) });
   }
 
-  return null;
+  return chain;
 }
 
 function asString(value: FormDataEntryValue | null): string | null {
@@ -91,6 +105,8 @@ function isTransientProviderError(message: string): boolean {
     m.includes("too many requests") ||
     m.includes("temporarily") ||
     m.includes("try again later") ||
+    m.includes("experiencing") ||
+    m.includes("failed after") ||
     m.includes("503") ||
     m.includes("529") ||
     m.includes("429") ||
@@ -105,8 +121,8 @@ function sleep(ms: number): Promise<void> {
 }
 
 export async function POST(request: Request) {
-  const chosen = pickVisionModel();
-  if (!chosen) {
+  const visionChain = buildVisionChain();
+  if (visionChain.length === 0) {
     return NextResponse.json(
       {
         ok: false,
@@ -209,9 +225,12 @@ export async function POST(request: Request) {
     },
   ];
 
-  async function runModel(model: LanguageModel): Promise<{ output: unknown }> {
+  async function runModel(
+    model: LanguageModel,
+    waitPlan: readonly number[],
+  ): Promise<{ output: unknown }> {
     let lastErr: unknown;
-    const maxAttempts = 1 + RETRY_WAIT_MS.length;
+    const maxAttempts = 1 + waitPlan.length;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         return await generateText({
@@ -226,34 +245,46 @@ export async function POST(request: Request) {
         const canRetry =
           isTransientProviderError(msg) && attempt < maxAttempts - 1;
         if (!canRetry) throw err;
-        await sleep(RETRY_WAIT_MS[attempt] ?? 2000);
+        await sleep(waitPlan[attempt] ?? 2000);
       }
     }
     throw lastErr;
   }
 
   try {
-    let usedModelId = chosen.modelId;
-    let result: { output: unknown };
+    const errors: string[] = [];
+    let result: { output: unknown } | null = null;
+    let successStep: VisionStep | null = null;
 
-    try {
-      result = await runModel(chosen.model);
-    } catch (firstErr) {
-      const msg =
-        firstErr instanceof Error ? firstErr.message : String(firstErr);
-      if (
-        chosen.provider !== "anthropic" ||
-        !isTransientProviderError(msg)
-      ) {
-        throw firstErr;
+    for (let i = 0; i < visionChain.length; i++) {
+      const step = visionChain[i];
+      // First hop (usually primary Claude) gets full backoff; later hops failover faster.
+      const waits = i === 0 ? RETRY_WAIT_MS : FAILOVER_RETRY_MS;
+      try {
+        result = await runModel(step.model, waits);
+        successStep = step;
+        break;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push(`${step.provider}/${step.modelId}: ${msg}`);
+        const canFailover =
+          i < visionChain.length - 1 && isTransientProviderError(msg);
+        if (!canFailover) {
+          throw new Error(
+            errors.length > 1
+              ? `All providers were busy or failed:\n${errors.join("\n")}`
+              : msg
+          );
+        }
       }
-      const fallbackId =
-        process.env.ANTHROPIC_FALLBACK_MODEL?.trim() || "claude-haiku-4-5";
-      if (fallbackId === chosen.modelId) {
-        throw firstErr;
-      }
-      usedModelId = fallbackId;
-      result = await runModel(anthropic(fallbackId));
+    }
+
+    if (!result || !successStep) {
+      throw new Error(
+        errors.length > 0
+          ? `All providers were busy or failed:\n${errors.join("\n")}`
+          : "Unknown error during analysis."
+      );
     }
 
     const { output } = result;
@@ -271,7 +302,10 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         ok: true,
-        meta: { provider: chosen.provider, model: usedModelId },
+        meta: {
+          provider: successStep.provider,
+          model: successStep.modelId,
+        },
         data,
       },
       { status: 200 }

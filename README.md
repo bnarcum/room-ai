@@ -12,16 +12,14 @@ Built with Next.js (App Router) and the Vercel AI SDK.
 
 ### 1) Configure environment variables
 
-Create `.env.local` in the project root and set **one** provider key:
+Create `.env.local` in the project root. You need **at least one** provider key. For **reliability when a model is overloaded**, add **more than one** (tried in order: Anthropic → Google → OpenAI):
 
 ```bash
-# Claude (recommended)
+# Primary (recommended)
 ANTHROPIC_API_KEY=your_key_here
 
-# OR Gemini
+# Optional failovers (used if the previous provider is rate-limited or busy)
 # GOOGLE_GENERATIVE_AI_API_KEY=your_key_here
-
-# OR OpenAI
 # OPENAI_API_KEY=your_key_here
 ```
 
@@ -48,6 +46,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - Dimension estimates from a **single photo** are inherently rough. Including a reference object (credit card, paper, or known ceiling height) improves the estimate.
 - v1 does not store photos server-side; it sends the image to the model for analysis and returns structured JSON.
 - **Anthropic**: if you set `ANTHROPIC_MODEL` on Vercel, use a current API model id (for example `claude-sonnet-4-6`). Old aliases such as `claude-3-5-sonnet-latest` often stop working when Anthropic retires them.
+- **Overload**: if Claude hits “high demand”, configure **`GOOGLE_GENERATIVE_AI_API_KEY`** and/or **`OPENAI_API_KEY`** so the API can automatically fall back without waiting on retries alone.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
