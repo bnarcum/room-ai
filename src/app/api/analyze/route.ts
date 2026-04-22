@@ -17,6 +17,12 @@ export const maxDuration = 120;
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 
 /** Retired `-latest` / old Sonnet aliases still show up in Vercel env and break at runtime. */
+/** Empty / whitespace env vars should fall through to the next provider option. */
+function envPresent(key: string): boolean {
+  const v = process.env[key];
+  return typeof v === "string" && v.trim().length > 0;
+}
+
 function resolveAnthropicModelId(explicit: string | undefined): string {
   const fallback = "claude-sonnet-4-6";
   if (!explicit?.trim()) return fallback;
@@ -28,7 +34,7 @@ function resolveAnthropicModelId(explicit: string | undefined): string {
 
 function pickVisionModel() {
   // Priority order: Claude (Anthropic) -> Gemini (Google) -> OpenAI
-  if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) {
+  if (envPresent("ANTHROPIC_API_KEY") || envPresent("ANTHROPIC_AUTH_TOKEN")) {
     const modelId = resolveAnthropicModelId(process.env.ANTHROPIC_MODEL);
     return {
       provider: "anthropic" as const,
@@ -37,7 +43,7 @@ function pickVisionModel() {
     };
   }
 
-  if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+  if (envPresent("GOOGLE_GENERATIVE_AI_API_KEY")) {
     const modelId = process.env.GOOGLE_MODEL ?? "gemini-2.5-flash";
     return {
       provider: "google" as const,
@@ -46,7 +52,7 @@ function pickVisionModel() {
     };
   }
 
-  if (process.env.OPENAI_API_KEY) {
+  if (envPresent("OPENAI_API_KEY")) {
     const modelId = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
     return {
       provider: "openai" as const,
