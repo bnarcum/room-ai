@@ -35,7 +35,8 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 - Push this repo to GitHub
 - Import it in Vercel
-- Add **`ANTHROPIC_API_KEY`** (and optionally `ANTHROPIC_MODEL` / `ANTHROPIC_FALLBACK_MODEL`) to Vercel Environment Variables.
+- Add **`ANTHROPIC_API_KEY`** (and optionally `ANTHROPIC_MODEL` / `ANTHROPIC_FALLBACK_MODEL`) under **Settings → Environment Variables**
+- Ensure the variable is enabled for **Production** (not only Preview), click **Save**, then **Redeploy**
 - Deploy
 
 ## Notes / limitations

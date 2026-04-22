@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateText, Output } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import {
   buildWebexStyleRubric,
   roomAnalysisSchema,
@@ -22,10 +22,31 @@ const RETRY_WAIT_MS = [2000, 5000, 10000];
 const FAILOVER_RETRY_MS = [2500];
 
 /** Retired `-latest` / old Sonnet aliases still show up in Vercel env and break at runtime. */
-/** Empty / whitespace env vars are treated as unset. */
-function envPresent(key: string): boolean {
+
+function trimmedEnv(key: string): string | undefined {
   const v = process.env[key];
-  return typeof v === "string" && v.trim().length > 0;
+  if (typeof v !== "string") return undefined;
+  const t = v.trim();
+  return t.length > 0 ? t : undefined;
+}
+
+/**
+ * Explicit credentials so we accept common alternate names and Bearer auth.
+ * The default `anthropic()` client only reads ANTHROPIC_API_KEY automatically.
+ */
+function anthropicProviderFromEnv() {
+  const authToken = trimmedEnv("ANTHROPIC_AUTH_TOKEN");
+  if (authToken) {
+    return createAnthropic({ authToken });
+  }
+  const apiKey =
+    trimmedEnv("ANTHROPIC_API_KEY") ??
+    trimmedEnv("ANTHROPIC_KEY") ??
+    trimmedEnv("CLAUDE_API_KEY");
+  if (apiKey) {
+    return createAnthropic({ apiKey });
+  }
+  return null;
 }
 
 function resolveAnthropicModelId(explicit: string | undefined): string {
@@ -53,16 +74,19 @@ function buildVisionChain(): VisionStep[] {
     chain.push(step);
   }
 
-  if (envPresent("ANTHROPIC_API_KEY") || envPresent("ANTHROPIC_AUTH_TOKEN")) {
-    const primary = resolveAnthropicModelId(process.env.ANTHROPIC_MODEL);
-    add({
-      modelId: primary,
-      model: anthropic(primary),
-    });
-    const fb = process.env.ANTHROPIC_FALLBACK_MODEL?.trim() || "claude-haiku-4-5";
-    if (fb !== primary) {
-      add({ modelId: fb, model: anthropic(fb) });
-    }
+  const anthropicSdk = anthropicProviderFromEnv();
+  if (!anthropicSdk) {
+    return chain;
+  }
+
+  const primary = resolveAnthropicModelId(process.env.ANTHROPIC_MODEL);
+  add({
+    modelId: primary,
+    model: anthropicSdk(primary),
+  });
+  const fb = process.env.ANTHROPIC_FALLBACK_MODEL?.trim() || "claude-haiku-4-5";
+  if (fb !== primary) {
+    add({ modelId: fb, model: anthropicSdk(fb) });
   }
 
   return chain;
@@ -112,7 +136,7 @@ export async function POST(request: Request) {
       {
         ok: false,
         error:
-          "Missing ANTHROPIC_API_KEY. This app uses Claude only — add your Anthropic API key in the environment.",
+          "Missing Anthropic credentials at runtime. In Vercel open Settings → Environment Variables: add ANTHROPIC_API_KEY (your sk-ant-… key), enable it for Production (not only Preview), Save, then Redeploy the latest deployment. Alternate names ANTHROPIC_KEY or CLAUDE_API_KEY are supported.",
       },
       { status: 500 }
     );
