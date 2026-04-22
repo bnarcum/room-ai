@@ -3,9 +3,10 @@ import { z } from "zod";
 export const roomAnalysisSchema = z.object({
   dimensions: z.object({
     unit: z.enum(["feet", "meters"]),
-    length: z.number().positive(),
-    width: z.number().positive(),
-    height: z.number().positive(),
+    // Use inclusive .min() — .positive() becomes JSON Schema exclusiveMinimum, which Anthropic rejects.
+    length: z.number().min(0.001),
+    width: z.number().min(0.001),
+    height: z.number().min(0.001),
     confidence: z.number().min(0).max(1),
     reasoning: z
       .string()
