@@ -3,6 +3,7 @@ import { generateText, Output } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import {
   buildWebexStyleRubric,
+  roomAnalysisOutputSchema,
   roomAnalysisSchema,
   type RoomAnalysis,
 } from "@/lib/roomAnalysis";
@@ -218,7 +219,7 @@ export async function POST(request: Request) {
     .join("\n");
 
   const outputConfig = Output.object({
-    schema: roomAnalysisSchema,
+    schema: roomAnalysisOutputSchema,
     name: "RoomAnalysis",
     description:
       "Estimated room dimensions and collaboration-room improvement recommendations.",

@@ -1,16 +1,27 @@
 import { z } from "zod";
 
-export const roomAnalysisSchema = z.object({
+/**
+ * Schema sent to the model / JSON Schema. Anthropic structured output rejects
+ * numeric `minimum`, `maximum`, and `exclusiveMinimum` in many cases — use plain
+ * `z.number()` here and enforce ranges in `roomAnalysisSchema` below.
+ */
+export const roomAnalysisOutputSchema = z.object({
   dimensions: z.object({
     unit: z.enum(["feet", "meters"]),
-    // Use inclusive .min() — .positive() becomes JSON Schema exclusiveMinimum, which Anthropic rejects.
-    length: z.number().min(0.001),
-    width: z.number().min(0.001),
-    height: z.number().min(0.001),
-    confidence: z.number().min(0).max(1),
+    length: z
+      .number()
+      .describe("Room length as a positive number in the chosen unit."),
+    width: z
+      .number()
+      .describe("Room width as a positive number in the chosen unit."),
+    height: z
+      .number()
+      .describe("Room height as a positive number in the chosen unit."),
+    confidence: z
+      .number()
+      .describe("Confidence between 0 and 1 for the dimension estimates."),
     reasoning: z
       .string()
-      .min(1)
       .describe("Brief explanation of cues used for the estimate."),
   }),
   detectedReference: z
@@ -18,7 +29,7 @@ export const roomAnalysisSchema = z.object({
       type: z
         .enum(["none", "credit-card", "a4-letter-paper", "known-ceiling-height"])
         .describe("Reference type used, if any."),
-      notes: z.string().min(1),
+      notes: z.string().describe("How the model handled the reference constraint."),
     })
     .describe("How the model handled the reference constraint."),
   roomSummary: z.object({
@@ -27,23 +38,120 @@ export const roomAnalysisSchema = z.object({
       .describe("Best guess based on the photo."),
     occupancy: z
       .number()
-      .int()
-      .min(0)
-      .describe("Rough seating capacity estimate if visible, else 0."),
-    keyConstraints: z.array(z.string()).min(1),
+      .describe(
+        "Rough seating capacity if visible in the photo; use 0 if unknown."
+      ),
+    keyConstraints: z.array(z.string()).describe("At least one constraint."),
   }),
   recommendations: z.object({
-    camera: z.array(z.string()).min(1),
-    lighting: z.array(z.string()).min(1),
-    acoustics: z.array(z.string()).min(1),
-    display: z.array(z.string()).min(1),
-    seating: z.array(z.string()).min(1),
-    cabling: z.array(z.string()).min(1),
-    network: z.array(z.string()).min(1),
-    power: z.array(z.string()).min(1),
+    camera: z.array(z.string()),
+    lighting: z.array(z.string()),
+    acoustics: z.array(z.string()),
+    display: z.array(z.string()),
+    seating: z.array(z.string()),
+    cabling: z.array(z.string()),
+    network: z.array(z.string()),
+    power: z.array(z.string()),
   }),
-  quickChecklist: z.array(z.string()).min(3),
+  quickChecklist: z.array(z.string()),
 });
+
+/** Runtime validation after the model responds (ranges, non-empty strings, array sizes). */
+export const roomAnalysisSchema = roomAnalysisOutputSchema.superRefine(
+  (data, ctx) => {
+    const { dimensions } = data;
+    if (dimensions.length < 0.001) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "length must be positive",
+        path: ["dimensions", "length"],
+      });
+    }
+    if (dimensions.width < 0.001) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "width must be positive",
+        path: ["dimensions", "width"],
+      });
+    }
+    if (dimensions.height < 0.001) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "height must be positive",
+        path: ["dimensions", "height"],
+      });
+    }
+    const conf = dimensions.confidence;
+    if (Number.isNaN(conf) || conf < 0 || conf > 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "confidence must be between 0 and 1",
+        path: ["dimensions", "confidence"],
+      });
+    }
+    if (!dimensions.reasoning.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "reasoning must not be empty",
+        path: ["dimensions", "reasoning"],
+      });
+    }
+
+    if (!data.detectedReference.notes.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "notes must not be empty",
+        path: ["detectedReference", "notes"],
+      });
+    }
+
+    const occ = data.roomSummary.occupancy;
+    if (!Number.isInteger(occ) || occ < 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "occupancy must be a non-negative integer",
+        path: ["roomSummary", "occupancy"],
+      });
+    }
+
+    if (data.roomSummary.keyConstraints.length < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "at least one key constraint required",
+        path: ["roomSummary", "keyConstraints"],
+      });
+    }
+
+    const rec = data.recommendations;
+    const categories = [
+      ["camera", rec.camera],
+      ["lighting", rec.lighting],
+      ["acoustics", rec.acoustics],
+      ["display", rec.display],
+      ["seating", rec.seating],
+      ["cabling", rec.cabling],
+      ["network", rec.network],
+      ["power", rec.power],
+    ] as const;
+    for (const [key, arr] of categories) {
+      if (arr.length < 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "at least one recommendation required",
+          path: ["recommendations", key],
+        });
+      }
+    }
+
+    if (data.quickChecklist.length < 3) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "at least three checklist items required",
+        path: ["quickChecklist"],
+      });
+    }
+  }
+);
 
 export type RoomAnalysis = z.infer<typeof roomAnalysisSchema>;
 
@@ -55,4 +163,3 @@ export function buildWebexStyleRubric(): string {
     "When uncertain from a single photo, say what you can't see and propose a safe default.",
   ].join("\n");
 }
-
