@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.71",
+    "@ai-sdk/google": "^3.0.64",
     "@ai-sdk/openai": "^3.0.53",
     "ai": "^6.0.168",
     "next": "16.2.4",

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { generateText, Output } from "ai";
 import { openai } from "@ai-sdk/openai";
+import { anthropic } from "@ai-sdk/anthropic";
+import { google } from "@ai-sdk/google";
 import {
   buildWebexStyleRubric,
   roomAnalysisSchema,
@@ -10,6 +12,32 @@ import {
 export const runtime = "nodejs";
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
+
+function pickVisionModel() {
+  // Priority order: Claude (Anthropic) -> Gemini (Google) -> OpenAI
+  if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) {
+    return {
+      provider: "anthropic" as const,
+      model: anthropic(process.env.ANTHROPIC_MODEL ?? "claude-3-5-sonnet-latest"),
+    };
+  }
+
+  if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    return {
+      provider: "google" as const,
+      model: google(process.env.GOOGLE_MODEL ?? "gemini-2.5-flash"),
+    };
+  }
+
+  if (process.env.OPENAI_API_KEY) {
+    return {
+      provider: "openai" as const,
+      model: openai(process.env.OPENAI_MODEL ?? "gpt-4o-mini"),
+    };
+  }
+
+  return null;
+}
 
 function asString(value: FormDataEntryValue | null): string | null {
   if (typeof value === "string") return value;
@@ -24,9 +52,14 @@ function isImageLike(type: string): boolean {
 }
 
 export async function POST(request: Request) {
-  if (!process.env.OPENAI_API_KEY) {
+  const chosen = pickVisionModel();
+  if (!chosen) {
     return NextResponse.json(
-      { ok: false, error: "Missing OPENAI_API_KEY environment variable." },
+      {
+        ok: false,
+        error:
+          "Missing API key. Set one of: ANTHROPIC_API_KEY (Claude), GOOGLE_GENERATIVE_AI_API_KEY (Gemini), or OPENAI_API_KEY.",
+      },
       { status: 500 }
     );
   }
@@ -105,11 +138,9 @@ export async function POST(request: Request) {
     .filter(Boolean)
     .join("\n");
 
-  const modelId = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
-
   try {
     const { output } = await generateText({
-      model: openai(modelId),
+      model: chosen.model,
       system,
       output: Output.object({
         schema: roomAnalysisSchema,

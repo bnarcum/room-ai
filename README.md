@@ -12,12 +12,17 @@ Built with Next.js (App Router) and the Vercel AI SDK.
 
 ### 1) Configure environment variables
 
-Create `.env.local` in the project root:
+Create `.env.local` in the project root and set **one** provider key:
 
 ```bash
-OPENAI_API_KEY=your_key_here
-# Optional:
-OPENAI_MODEL=gpt-4o-mini
+# Claude (recommended)
+ANTHROPIC_API_KEY=your_key_here
+
+# OR Gemini
+# GOOGLE_GENERATIVE_AI_API_KEY=your_key_here
+
+# OR OpenAI
+# OPENAI_API_KEY=your_key_here
 ```
 
 ### 2) Install and run
@@ -34,7 +39,8 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 - Push this repo to GitHub
 - Import it in Vercel
-- Add `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`) to your Vercel Project Environment Variables
+- Add your provider key to Vercel Project Environment Variables:
+  - `ANTHROPIC_API_KEY` (Claude) or `GOOGLE_GENERATIVE_AI_API_KEY` (Gemini) or `OPENAI_API_KEY`
 - Deploy
 
 ## Notes / limitations
