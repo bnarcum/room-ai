@@ -1,13 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { RoomAnalysis } from "@/lib/roomAnalysis";
+import { loadRoomAnalysisPayload } from "@/lib/resultStorage";
 
 function decodeDataParam(dataParam: string): unknown {
-  const json = atob(decodeURIComponent(dataParam));
-  return JSON.parse(json) as unknown;
+  const decoded = decodeURIComponent(dataParam);
+  try {
+    return JSON.parse(decoded) as unknown;
+  } catch {
+    // Legacy: data was encodeURIComponent(btoa(JSON.stringify(...)))
+    return JSON.parse(atob(decoded)) as unknown;
+  }
 }
 
 type AnalyzeEnvelope =
@@ -18,13 +24,21 @@ export default function ResultsClient() {
   const params = useSearchParams();
   const dataParam = params.get("data");
   const [copied, setCopied] = useState(false);
+  const [decoded, setDecoded] = useState<AnalyzeEnvelope | null>(null);
+  const [hydrated, setHydrated] = useState(false);
 
-  const decoded = useMemo((): AnalyzeEnvelope | null => {
-    if (!dataParam) return null;
+  useEffect(() => {
     try {
-      return decodeDataParam(dataParam) as AnalyzeEnvelope;
+      if (dataParam) {
+        setDecoded(decodeDataParam(dataParam) as AnalyzeEnvelope);
+      } else {
+        const stored = loadRoomAnalysisPayload();
+        setDecoded(stored as AnalyzeEnvelope | null);
+      }
     } catch {
-      return null;
+      setDecoded(null);
+    } finally {
+      setHydrated(true);
     }
   }, [dataParam]);
 
@@ -42,7 +56,8 @@ export default function ResultsClient() {
 
   async function onCopyLink() {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      const text = pretty ?? window.location.href;
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -69,7 +84,9 @@ export default function ResultsClient() {
             <div className="grid gap-2">
               <h1 className="text-2xl font-semibold tracking-tight">Results</h1>
               <p className="text-sm leading-6 text-zinc-600">
-                Copy the link to share these results, or download the JSON.
+                Copy results as text or download JSON. Reloading `/results`
+                replays your last analysis from your browser tab session until you run
+                another one.
               </p>
             </div>
 
@@ -81,9 +98,13 @@ export default function ResultsClient() {
             </Link>
           </div>
 
-          {!decoded ? (
+          {!hydrated ? (
             <div className="mt-6 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
-              No results found in the URL. Go back and analyze a photo.
+              Loading results…
+            </div>
+          ) : !decoded ? (
+            <div className="mt-6 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
+              No results found. Go back and analyze a photo.
             </div>
           ) : decoded.ok === false ? (
             <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
@@ -97,7 +118,7 @@ export default function ResultsClient() {
                   onClick={onCopyLink}
                   className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-semibold text-white"
                 >
-                  {copied ? "Copied" : "Copy share link"}
+                  {copied ? "Copied" : "Copy results"}
                 </button>
                 <button
                   type="button"

@@ -11,12 +11,25 @@ import {
 
 export const runtime = "nodejs";
 
+/** Vision + structured output can exceed the default 10s on Vercel; raise where your plan allows. */
+export const maxDuration = 120;
+
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
+
+/** Retired `-latest` / old Sonnet aliases still show up in Vercel env and break at runtime. */
+function resolveAnthropicModelId(explicit: string | undefined): string {
+  const fallback = "claude-sonnet-4-6";
+  if (!explicit?.trim()) return fallback;
+  const id = explicit.trim();
+  // Common dead value seen in dashboards; Anthropic rejects the call.
+  if (id === "claude-3-5-sonnet-latest") return fallback;
+  return id;
+}
 
 function pickVisionModel() {
   // Priority order: Claude (Anthropic) -> Gemini (Google) -> OpenAI
   if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) {
-    const modelId = process.env.ANTHROPIC_MODEL ?? "claude-3-5-sonnet-latest";
+    const modelId = resolveAnthropicModelId(process.env.ANTHROPIC_MODEL);
     return {
       provider: "anthropic" as const,
       modelId,
@@ -81,7 +94,8 @@ export async function POST(request: Request) {
   }
 
   const photo = form.get("photo");
-  if (!(photo instanceof File)) {
+  // `File` in some runtimes is a `Blob` only; both support type, size, arrayBuffer.
+  if (!(photo instanceof Blob)) {
     return NextResponse.json(
       { ok: false, error: "Missing photo file upload." },
       { status: 400 }

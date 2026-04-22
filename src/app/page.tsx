@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { saveRoomAnalysisPayload } from "@/lib/resultStorage";
+
 type AnalyzeResponse =
   | { ok: true; meta?: { provider?: string; model?: string }; data: unknown }
   | { ok: false; error: string };
@@ -69,8 +71,12 @@ export default function Home() {
     }
 
     setStatus("done");
-    const encoded = encodeURIComponent(btoa(JSON.stringify(json)));
-    router.push(`/results?data=${encoded}`);
+    // Prefer sessionStorage so large JSON + browser URL length limits do not break navigation.
+    if (saveRoomAnalysisPayload(json)) {
+      router.push("/results");
+      return;
+    }
+    router.push(`/results?data=${encodeURIComponent(JSON.stringify(json))}`);
   }
 
   return (
