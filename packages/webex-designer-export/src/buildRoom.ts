@@ -5,8 +5,15 @@ import type {
 } from "./types";
 
 const FT_TO_M = 0.3048;
+/** Typical conference table surface height when the mesh sits on the floor (m). */
 const TABLE_HEIGHT_M = 0.71;
-const TABLE_CENTER_Y = TABLE_HEIGHT_M / 2;
+/**
+ * Workspace Designer `table` objects use a **floor pivot** (bottom-center), same as chairs at y=0.
+ * Do not use half-height here — that was causing floating tables when the asset origin is the base.
+ */
+const TABLE_POSITION_Y = 0;
+/** Table Mic Pro sits on the tabletop — slightly above nominal surface height for the puck. */
+const TABLE_MIC_Y = TABLE_HEIGHT_M + 0.03;
 /** Distance from table apron to chair center (Designer avatars sit better when not overshot). */
 const CHAIR_RING_PAD_M = 0.38;
 /** Chair centers must stay inside the floor polygon by at least this margin (m). */
@@ -267,7 +274,7 @@ export function buildWebexDesignerRoomJson(
     model: "regular",
     width: tableWid,
     length: tableLen,
-    position: [0, TABLE_CENTER_Y, tableCenterZ],
+    position: [0, TABLE_POSITION_Y, tableCenterZ],
     rotation: [0, rotateTableY, 0],
   });
 
@@ -294,7 +301,7 @@ export function buildWebexDesignerRoomJson(
     id: "rai-table-mic",
     objectType: "microphone",
     model: "Table Mic Pro",
-    position: [0, 0.7, tableCenterZ],
+    position: [0, round3(TABLE_MIC_Y), tableCenterZ],
   });
 
   const chairPos = longSideChairPositions({
