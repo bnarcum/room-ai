@@ -144,24 +144,24 @@ export default function ResultsClient() {
   }
 
   return (
-    <div className="app-backdrop flex min-h-full flex-1 flex-col items-center px-4 py-12 text-zinc-100">
+    <div className="app-backdrop flex min-h-full flex-1 flex-col items-center px-4 py-12 text-[hsl(210_40%_96%)]">
       <main className="w-full max-w-3xl">
-        <div className="surface-card rounded-3xl p-7 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.65)]">
+        <div className="surface-card rounded-3xl p-7">
           <div className="flex items-start justify-between gap-4">
             <div className="grid gap-2">
-              <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-cyan-400/90">
+              <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[hsl(277_90%_72%/0.92)]">
                 Output
               </p>
               <h1 className="text-3xl font-semibold tracking-tight text-white">
                 Results
               </h1>
-              <p className="text-sm leading-relaxed text-zinc-400">
-                Scroll to <strong className="font-semibold text-zinc-200">Downloads</strong> for the Collab{" "}
-                <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-cyan-100/95">
+              <p className="copy-readable max-w-[62ch]">
+                Scroll to <strong className="font-semibold text-[hsl(210_40%_98%)]">Downloads</strong> for the Collab{" "}
+                <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(217_33%_22%/0.85)] px-1.5 py-0.5 font-mono text-xs text-[hsl(277_90%_78%)]">
                   .vrc.json
                 </code>{" "}
                 file. That export embeds your analysis under{" "}
-                <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-cyan-100/95">
+                <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(217_33%_22%/0.85)] px-1.5 py-0.5 font-mono text-xs text-[hsl(277_90%_78%)]">
                   roomAi
                 </code>
                 , room defaults, and a starter table / display / Room Bar Pro
@@ -172,32 +172,32 @@ export default function ResultsClient() {
 
             <Link
               href="/"
-              className="shrink-0 rounded-xl border border-white/10 bg-zinc-950/60 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-cyan-400/30 hover:bg-cyan-500/10 hover:text-cyan-50"
+              className="shrink-0 rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2 text-sm font-medium text-[hsl(215_20%_82%)] transition-colors hover:border-[hsl(277_90%_65%/0.45)] hover:bg-[hsl(277_90%_65%/0.1)] hover:text-[hsl(210_40%_98%)]"
             >
               New analysis
             </Link>
           </div>
 
           <section
-            className="mt-8 rounded-2xl border border-white/10 bg-zinc-950/40 p-6"
+            className="mt-8 rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.55)] p-6"
             aria-label="Download exports"
           >
             <h2 className="text-base font-semibold text-white">Downloads</h2>
-            <p className="mt-1 text-sm leading-relaxed text-zinc-400">
+            <p className="copy-readable mt-2">
               Use the first button for{" "}
-              <span className="whitespace-nowrap text-zinc-300">collabexperience.com</span>. The
+              <span className="whitespace-nowrap text-[hsl(215_20%_88%)]">collabexperience.com</span>. The
               third button is only the app&apos;s{" "}
-              <code className="rounded bg-white/10 px-1 py-0.5 font-mono text-[11px] text-zinc-200">{`{ ok, data }`}</code> JSON — not
+              <code className="rounded border border-[hsl(217_33%_28%)] bg-[hsl(217_33%_18%/0.9)] px-1 py-0.5 font-mono text-[11px] text-[hsl(215_20%_85%)]">{`{ ok, data }`}</code> JSON — not
               for Video Room Calculator.
             </p>
 
-            <div className="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-500/[0.06] px-4 py-3 text-sm leading-relaxed text-cyan-50/95">
-              <span className="font-semibold text-cyan-200">Import tip:</span>{" "}
-              <code className="rounded bg-black/35 px-1.5 py-0.5 font-mono text-xs text-cyan-100">
+            <div className="mt-4 rounded-xl border border-[hsl(173_80%_40%/0.28)] bg-[hsl(173_80%_40%/0.09)] px-4 py-3 text-[15px] leading-relaxed text-[hsl(210_40%_96%)]">
+              <span className="font-semibold text-[hsl(173_85%_48%)]">Import tip:</span>{" "}
+              <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.65)] px-1.5 py-0.5 font-mono text-[13px] text-[hsl(210_40%_96%)]">
                 room-ai-analysis.json
               </code>{" "}
               cannot be opened in Video Room Calculator — you need{" "}
-              <code className="rounded bg-black/35 px-1.5 py-0.5 font-mono text-xs text-cyan-100">
+              <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.65)] px-1.5 py-0.5 font-mono text-[13px] text-[hsl(210_40%_96%)]">
                 .vrc.json
               </code>{" "}
               (first button) or convert with &quot;Choose JSON file…&quot; at the
@@ -224,7 +224,7 @@ export default function ResultsClient() {
                 type="button"
                 onClick={onCopyLink}
                 disabled={loading || !pretty}
-                className="order-2 w-full rounded-xl border border-white/10 bg-zinc-950/60 px-4 py-3 text-sm font-semibold text-zinc-100 transition-colors hover:border-white/20 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-45 sm:order-none sm:w-auto sm:px-4 sm:py-2.5"
+                className="order-2 w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-3 text-[15px] font-semibold text-[hsl(210_40%_96%)] transition-colors hover:border-[hsl(217_33%_35%)] hover:bg-[hsl(217_33%_18%/0.95)] disabled:cursor-not-allowed disabled:opacity-45 sm:order-none sm:w-auto sm:px-4 sm:py-2.5"
               >
                 {copied ? "Copied" : "Copy results"}
               </button>
@@ -232,7 +232,7 @@ export default function ResultsClient() {
                 type="button"
                 onClick={onDownloadJson}
                 disabled={loading || !pretty}
-                className="order-3 w-full rounded-xl border border-white/10 bg-zinc-950/60 px-4 py-3 text-sm font-semibold text-zinc-100 transition-colors hover:border-white/20 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-45 sm:order-none sm:w-auto sm:px-4 sm:py-2.5"
+                className="order-3 w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-3 text-[15px] font-semibold text-[hsl(210_40%_96%)] transition-colors hover:border-[hsl(217_33%_35%)] hover:bg-[hsl(217_33%_18%/0.95)] disabled:cursor-not-allowed disabled:opacity-45 sm:order-none sm:w-auto sm:px-4 sm:py-2.5"
                 title="App export only — not for Video Room Calculator"
               >
                 Download full analysis (room-ai).json
@@ -240,15 +240,15 @@ export default function ResultsClient() {
             </div>
           </section>
           {loading ? (
-            <p className="mt-3 text-xs text-zinc-500">
+            <p className="copy-muted mt-3">
               Loading saved results from this browser tab…
             </p>
           ) : null}
           {!loading && !decoded ? (
-            <div className="mt-6 rounded-xl border border-white/10 bg-zinc-950/50 p-4 text-sm text-zinc-300">
+            <div className="mt-6 rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.65)] p-4 text-[15px] leading-relaxed text-[hsl(215_20%_84%)]">
               No results in this tab yet. Go back and analyze a photo, or use{" "}
               <strong className="text-white">Choose JSON file…</strong> below to build a{" "}
-              <code className="rounded bg-white/10 px-1 py-0.5 font-mono text-xs">
+              <code className="rounded border border-[hsl(217_33%_28%)] bg-[hsl(217_33%_18%/0.9)] px-1 py-0.5 font-mono text-xs text-[hsl(277_90%_75%)]">
                 .vrc.json
               </code>{" "}
               from an older export.
@@ -264,13 +264,13 @@ export default function ResultsClient() {
             <>
               {analysis ? (
                 <div className="mt-8 grid gap-6">
-                  <div className="rounded-2xl border border-white/10 bg-zinc-950/35 p-5">
+                  <div className="rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.45)] p-5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="text-sm font-medium text-zinc-100">
+                      <div className="text-sm font-medium text-[hsl(210_40%_98%)]">
                         Estimated dimensions
                       </div>
                       {meta?.model ? (
-                        <div className="text-xs text-zinc-500">
+                        <div className="text-sm text-[hsl(215_20%_68%)]">
                           Model: {meta.model}
                         </div>
                       ) : null}
@@ -278,28 +278,28 @@ export default function ResultsClient() {
                     <div className="mt-4 grid gap-2 text-sm">
                       <div className="flex flex-wrap gap-x-8 gap-y-2">
                         <div>
-                          <span className="text-zinc-500">Length:</span>{" "}
+                          <span className="text-[hsl(215_20%_68%)]">Length:</span>{" "}
                           <span className="font-semibold text-white">
                             {analysis.dimensions.length}{" "}
                             {analysis.dimensions.unit}
                           </span>
                         </div>
                         <div>
-                          <span className="text-zinc-500">Width:</span>{" "}
+                          <span className="text-[hsl(215_20%_68%)]">Width:</span>{" "}
                           <span className="font-semibold text-white">
                             {analysis.dimensions.width}{" "}
                             {analysis.dimensions.unit}
                           </span>
                         </div>
                         <div>
-                          <span className="text-zinc-500">Height:</span>{" "}
+                          <span className="text-[hsl(215_20%_68%)]">Height:</span>{" "}
                           <span className="font-semibold text-white">
                             {analysis.dimensions.height}{" "}
                             {analysis.dimensions.unit}
                           </span>
                         </div>
                       </div>
-                      <div className="text-xs text-zinc-500">
+                      <div className="text-sm leading-relaxed text-[hsl(215_20%_72%)]">
                         Confidence:{" "}
                         {Math.round(analysis.dimensions.confidence * 100)}% —{" "}
                         {analysis.dimensions.reasoning}
@@ -307,28 +307,28 @@ export default function ResultsClient() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/10 bg-zinc-950/25 p-5">
-                    <div className="text-sm font-medium text-zinc-100">
+                  <div className="rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.35)] p-5">
+                    <div className="text-sm font-medium text-[hsl(210_40%_98%)]">
                       Room summary
                     </div>
                     <div className="mt-3 grid gap-2 text-sm">
                       <div>
-                        <span className="text-zinc-500">Likely use:</span>{" "}
-                        <span className="font-semibold text-zinc-100">
+                        <span className="text-[hsl(215_20%_68%)]">Likely use:</span>{" "}
+                        <span className="font-semibold text-[hsl(210_40%_96%)]">
                           {analysis.roomSummary.likelyUse}
                         </span>
                       </div>
                       <div>
-                        <span className="text-zinc-500">Occupancy:</span>{" "}
-                        <span className="font-semibold text-zinc-100">
+                        <span className="text-[hsl(215_20%_68%)]">Occupancy:</span>{" "}
+                        <span className="font-semibold text-[hsl(210_40%_96%)]">
                           {analysis.roomSummary.occupancy}
                         </span>
                       </div>
-                      <div className="text-xs text-zinc-400">
-                        <div className="font-medium text-zinc-300">
+                      <div className="text-[15px] leading-relaxed text-[hsl(215_20%_78%)]">
+                        <div className="font-medium text-[hsl(215_20%_85%)]">
                           Key constraints
                         </div>
-                        <ul className="mt-2 list-disc pl-5 text-zinc-400">
+                        <ul className="mt-2 list-disc pl-5 text-[hsl(215_20%_78%)]">
                           {analysis.roomSummary.keyConstraints.map((c, i) => (
                             <li key={i}>{c}</li>
                           ))}
@@ -337,8 +337,8 @@ export default function ResultsClient() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/10 bg-zinc-950/35 p-5">
-                    <div className="text-sm font-medium text-zinc-100">
+                  <div className="rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.45)] p-5">
+                    <div className="text-sm font-medium text-[hsl(210_40%_98%)]">
                       Recommendations
                     </div>
                     <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -356,12 +356,12 @@ export default function ResultsClient() {
                       ).map(([title, items]) => (
                         <div
                           key={title}
-                          className="rounded-xl border border-white/[0.07] bg-black/25 p-4 transition-colors hover:border-cyan-400/15"
+                          className="rounded-xl border border-[hsl(217_33%_22%)] bg-[hsl(220_25%_8%/0.45)] p-4 transition-colors hover:border-[hsl(277_90%_65%/0.22)]"
                         >
-                          <div className="text-sm font-semibold text-cyan-100/90">
+                          <div className="text-[15px] font-semibold text-[hsl(277_90%_74%)]">
                             {title}
                           </div>
-                          <ul className="mt-2 list-disc pl-5 text-sm text-zinc-400">
+                          <ul className="mt-2 list-disc pl-5 text-[15px] leading-relaxed text-[hsl(215_20%_78%)]">
                             {items.map((it, i) => (
                               <li key={i}>{it}</li>
                             ))}
@@ -371,11 +371,11 @@ export default function ResultsClient() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-cyan-400/25 bg-gradient-to-br from-cyan-950/50 to-zinc-950/80 p-5">
-                    <div className="text-sm font-medium text-cyan-50">
+                  <div className="rounded-2xl border border-[hsl(277_90%_65%/0.28)] bg-gradient-to-br from-[hsl(277_45%_16%/0.55)] to-[hsl(217_33%_14%/0.95)] p-5">
+                    <div className="text-[15px] font-medium text-[hsl(210_40%_98%)]">
                       Quick checklist
                     </div>
-                    <ul className="mt-3 list-disc pl-5 text-sm text-zinc-300">
+                    <ul className="mt-3 list-disc pl-5 text-[15px] leading-relaxed text-[hsl(215_20%_82%)]">
                       {analysis.quickChecklist.map((it, i) => (
                         <li key={i}>{it}</li>
                       ))}
@@ -385,31 +385,31 @@ export default function ResultsClient() {
               ) : null}
 
               <div className="mt-8">
-                <div className="text-sm font-medium text-zinc-100">
+                <div className="text-sm font-medium text-[hsl(210_40%_98%)]">
                   Raw output
                 </div>
-                <p className="mt-1 text-xs text-zinc-500">
+                <p className="copy-muted mt-2">
                   This is the same JSON as &quot;Download full analysis&quot; — not a
                   Collab Experience import file.
                 </p>
-                <pre className="mt-3 max-h-[60vh] overflow-auto rounded-2xl border border-white/10 bg-black/60 p-4 text-xs leading-relaxed text-zinc-300 [font-variant-ligatures:none]">
+                <pre className="mt-3 max-h-[60vh] overflow-auto rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(220_25%_7%/0.92)] p-4 text-[13px] leading-relaxed text-[hsl(215_20%_82%)] [font-variant-ligatures:none]">
                   {pretty}
                 </pre>
               </div>
             </>
           ) : null}
 
-          <div className="mt-10 border-t border-white/10 pt-8">
-            <div className="text-sm font-medium text-zinc-100">
+          <div className="mt-10 border-t border-[hsl(217_33%_25%)] pt-8">
+            <div className="text-sm font-medium text-[hsl(210_40%_98%)]">
               Convert saved room-ai JSON → Collab (.vrc.json)
             </div>
-            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+            <p className="copy-readable mt-2">
               If you only have an older export like{" "}
-              <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-zinc-200">
+              <code className="rounded border border-[hsl(217_33%_28%)] bg-[hsl(217_33%_18%/0.9)] px-1.5 py-0.5 font-mono text-xs text-[hsl(215_20%_88%)]">
                 room-analysisv4.json
               </code>{" "}
               ({`ok`}/{`data`}), choose it here and we will download a proper{" "}
-              <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-zinc-200">
+              <code className="rounded border border-[hsl(217_33%_28%)] bg-[hsl(217_33%_18%/0.9)] px-1.5 py-0.5 font-mono text-xs text-[hsl(215_20%_88%)]">
                 .vrc.json
               </code>{" "}
               you can open on collabexperience.com.
@@ -425,7 +425,7 @@ export default function ResultsClient() {
               <button
                 type="button"
                 onClick={() => convertInputRef.current?.click()}
-                className="rounded-xl border border-white/10 bg-zinc-950/60 px-4 py-2.5 text-sm font-semibold text-zinc-100 transition-colors hover:border-cyan-400/35 hover:bg-cyan-500/10 hover:text-cyan-50"
+                className="rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2.5 text-[15px] font-semibold text-[hsl(210_40%_96%)] transition-colors hover:border-[hsl(277_90%_65%/0.45)] hover:bg-[hsl(277_90%_65%/0.1)] hover:text-[hsl(210_40%_98%)]"
               >
                 Choose JSON file…
               </button>

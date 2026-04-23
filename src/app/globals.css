@@ -1,16 +1,35 @@
 @import "tailwindcss";
 
+/**
+ * Palette aligned with momentumeq.app/welcome (public CSS variables).
+ * --background 222 47% 11% | --card 217 33% 17% | --primary 277 90% 65%
+ * | --accent 173 80% 40% | --muted-foreground 215 20% 75% | --border 217 33% 25%
+ */
 :root {
   color-scheme: dark;
-  --background: #09090b;
-  --foreground: #fafafa;
-  --muted: #a1a1aa;
-  --surface: rgba(24, 24, 27, 0.72);
-  --surface-solid: #18181b;
-  --border: rgba(255, 255, 255, 0.08);
-  --accent: #22d3ee;
-  --accent-dim: rgba(34, 211, 238, 0.14);
-  --accent-glow: 0 0 40px -8px rgba(34, 211, 238, 0.45);
+  --background: hsl(222 47% 11%);
+  --foreground: hsl(210 40% 96%);
+  --meq-card: hsl(217 33% 17%);
+  --meq-card-top: hsl(217 33% 18%);
+  --meq-card-bottom: hsl(217 33% 15%);
+  --meq-border: hsl(217 33% 25%);
+  --meq-muted: hsl(215 20% 75%);
+  --meq-primary: hsl(277 90% 65%);
+  --meq-accent: hsl(173 80% 40%);
+  --meq-accent-2: hsl(190 70% 45%);
+  --gradient-hero: linear-gradient(
+    135deg,
+    hsl(277 90% 65%) 0%,
+    hsl(173 80% 40%) 100%
+  );
+  --gradient-accent: linear-gradient(
+    135deg,
+    hsl(173 80% 40%),
+    hsl(190 70% 45%)
+  );
+  --shadow-glow-primary: 0 0 40px hsl(277 90% 65% / 0.28);
+  --shadow-glow-accent: 0 0 40px hsl(173 80% 40% / 0.28);
+  --shadow-card: 0 4px 24px hsl(0 0% 0% / 0.3);
 }
 
 @theme inline {
@@ -24,40 +43,69 @@ body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/**
+ * Body copy — between foreground and MEQ muted for long paragraphs.
+ */
+.copy-readable {
+  font-size: 15px;
+  line-height: 1.65;
+  letter-spacing: 0;
+  color: hsl(215 20% 82%);
+}
+
+.copy-muted {
+  font-size: 0.875rem;
+  line-height: 1.625;
+  color: hsl(215 20% 68%);
 }
 
 ::selection {
-  background-color: rgba(34, 211, 238, 0.25);
+  background-color: hsl(277 90% 65% / 0.28);
   color: var(--foreground);
 }
 
-/** Subtle depth: soft cyan bloom + hairline grid (Apple-quiet, neon hint) */
+/** Hero backdrop: purple + teal glows, soft grid (MomentumEQ-style depth) */
 .app-backdrop {
-  background-color: var(--background);
+  background-color: hsl(222 47% 11%);
   background-image:
     radial-gradient(
-      ellipse 100% 80% at 50% -30%,
-      rgba(34, 211, 238, 0.09),
+      ellipse 90% 75% at 85% -10%,
+      hsl(277 90% 65% / 0.11),
+      transparent 52%
+    ),
+    radial-gradient(
+      ellipse 65% 55% at 8% 25%,
+      hsl(173 80% 40% / 0.07),
+      transparent 48%
+    ),
+    radial-gradient(
+      ellipse 55% 40% at 50% 100%,
+      hsl(277 50% 38% / 0.06),
       transparent 55%
     ),
-    linear-gradient(
-        rgba(255, 255, 255, 0.03) 1px,
-        transparent 1px
-      )
-      0 0 / 48px 48px,
+    linear-gradient(hsl(217 33% 25% / 0.28) 1px, transparent 1px) 0 0 / 56px 56px,
     linear-gradient(
         90deg,
-        rgba(255, 255, 255, 0.03) 1px,
+        hsl(217 33% 25% / 0.28) 1px,
         transparent 1px
       )
-      0 0 / 48px 48px;
+      0 0 / 56px 56px;
 }
 
-/** Primary CTA — minimal base + cyber glow */
+/** Primary CTA — purple → teal hero gradient + primary glow */
 .btn-accent {
-  background: linear-gradient(180deg, #2dd4bf 0%, #06b6d4 100%);
-  color: #0a0a0a;
-  box-shadow: var(--accent-glow);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  background: var(--gradient-hero);
+  color: hsl(210 40% 98%);
+  text-shadow: 0 1px 1px hsl(220 40% 6% / 0.35);
+  box-shadow: var(--shadow-glow-primary);
   transition:
     box-shadow 0.2s ease,
     transform 0.15s ease,
@@ -65,10 +113,11 @@ body {
 }
 
 .btn-accent:hover:not(:disabled) {
-  filter: brightness(1.06);
+  filter: brightness(1.07) saturate(1.05);
   box-shadow:
-    0 0 48px -6px rgba(34, 211, 238, 0.55),
-    0 0 80px -20px rgba(34, 211, 238, 0.25);
+    var(--shadow-glow-primary),
+    var(--shadow-glow-accent),
+    0 8px 32px hsl(0 0% 0% / 0.35);
 }
 
 .btn-accent:active:not(:disabled) {
@@ -81,8 +130,13 @@ body {
 }
 
 .surface-card {
-  background: var(--surface);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border);
+  background: linear-gradient(
+    180deg,
+    var(--meq-card-top) 0%,
+    var(--meq-card-bottom) 100%
+  );
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--meq-border);
+  box-shadow: var(--shadow-card);
 }
