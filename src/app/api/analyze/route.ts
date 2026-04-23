@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import { generateText, Output } from "ai";
+import { generateText } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import {
   buildWebexStyleRubric,
-  roomAnalysisOutputSchema,
   roomAnalysisSchema,
   type RoomAnalysis,
 } from "@/lib/roomAnalysis";
+import { coerceRoomAnalysisPayload } from "@/lib/coerceRoomAnalysis";
+import { extractBalancedJsonObject } from "@/lib/extractModelJson";
 import { prepareImageForVision } from "@/lib/imageMime";
 
 import type { LanguageModel } from "ai";
@@ -99,11 +100,14 @@ function asString(value: FormDataEntryValue | null): string | null {
   return null;
 }
 
-function isImageLike(type: string): boolean {
-  return (
-    type.startsWith("image/") ||
-    type === "application/octet-stream" // some browsers omit a proper mime type
-  );
+function blobLooksLikeImage(blob: Blob): boolean {
+  const t = (blob.type ?? "").trim().toLowerCase();
+  if (t.startsWith("image/") || t === "application/octet-stream") return true;
+  if (typeof File !== "undefined" && blob instanceof File) {
+    const name = blob.name?.toLowerCase() ?? "";
+    if (/\.(jpe?g|png|gif|webp)$/i.test(name)) return true;
+  }
+  return false;
 }
 
 function isTransientProviderError(message: string): boolean {
@@ -163,7 +167,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!isImageLike(photo.type)) {
+  if (!blobLooksLikeImage(photo)) {
     return NextResponse.json(
       { ok: false, error: "Unsupported file type. Please upload an image." },
       { status: 400 }
@@ -200,11 +204,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: msg }, { status: 400 });
   }
 
-  const base64 = prepared.buffer.toString("base64");
   const mediaType = prepared.mediaType;
-  const dataUrl = `data:${mediaType};base64,${base64}`;
 
   const rubric = buildWebexStyleRubric();
+  const jsonShape = [
+    "Reply with a single JSON object only (no markdown fences, no commentary). Use this shape:",
+    '{',
+    '  "dimensions": {',
+    '    "unit": "feet" | "meters",',
+    '    "length": number, "width": number, "height": number,',
+    '    "confidence": number between 0 and 1,',
+    '    "reasoning": string',
+    "  },",
+    '  "detectedReference": { "type": string, "notes": string },',
+    '  "roomSummary": {',
+    '    "likelyUse": string,',
+    '    "occupancy": integer (0 if unknown),',
+    '    "keyConstraints": string[]',
+    "  },",
+    '  "recommendations": {',
+    '    "camera": string[], "lighting": string[], "acoustics": string[], "display": string[],',
+    '    "seating": string[], "cabling": string[], "network": string[], "power": string[]',
+    "  },",
+    '  "quickChecklist": string[] (at least 3 items)',
+    "}",
+  ].join("\n");
+
   const system = [
     "You are a room-setup expert for collaboration spaces.",
     "You will be given ONE photo of a room and optional reference context.",
@@ -215,7 +240,7 @@ export async function POST(request: Request) {
     "",
     rubric,
     "",
-    "Return ONLY valid JSON that matches the provided schema.",
+    jsonShape,
   ].join("\n");
 
   const userText = [
@@ -229,19 +254,16 @@ export async function POST(request: Request) {
     .filter(Boolean)
     .join("\n");
 
-  const outputConfig = Output.object({
-    schema: roomAnalysisOutputSchema,
-    name: "RoomAnalysis",
-    description:
-      "Estimated room dimensions and collaboration-room improvement recommendations.",
-  });
-
   const messages = [
     {
       role: "user" as const,
       content: [
         { type: "text" as const, text: userText },
-        { type: "image" as const, image: dataUrl, mediaType },
+        {
+          type: "image" as const,
+          image: prepared.buffer,
+          mediaType,
+        },
       ],
     },
   ];
@@ -249,7 +271,7 @@ export async function POST(request: Request) {
   async function runModel(
     model: LanguageModel,
     waitPlan: readonly number[],
-  ): Promise<{ output: unknown }> {
+  ): Promise<{ text: string }> {
     let lastErr: unknown;
     const maxAttempts = 1 + waitPlan.length;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -257,8 +279,9 @@ export async function POST(request: Request) {
         return await generateText({
           model,
           system,
-          output: outputConfig,
           messages,
+          temperature: 0.25,
+          maxOutputTokens: 8192,
         });
       } catch (err) {
         lastErr = err;
@@ -274,7 +297,7 @@ export async function POST(request: Request) {
 
   try {
     const errors: string[] = [];
-    let result: { output: unknown } | null = null;
+    let result: { text: string } | null = null;
     let successStep: VisionStep | null = null;
 
     for (let i = 0; i < visionChain.length; i++) {
@@ -308,10 +331,22 @@ export async function POST(request: Request) {
       );
     }
 
-    const { output } = result;
+    let parsedJson: unknown;
+    try {
+      parsedJson = extractBalancedJsonObject(result.text);
+    } catch {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "The model response could not be parsed. Please try again in a moment.",
+        },
+        { status: 502 }
+      );
+    }
 
-    // extra runtime validation (defensive in case provider returns partial)
-    const parsed = roomAnalysisSchema.safeParse(output);
+    const coerced = coerceRoomAnalysisPayload(parsedJson);
+    const parsed = roomAnalysisSchema.safeParse(coerced);
     if (!parsed.success) {
       const flat = parsed.error.flatten();
       const detail =
@@ -322,7 +357,7 @@ export async function POST(request: Request) {
         {
           ok: false,
           error:
-            "Model returned invalid structured output. Try again, or use a JPEG/PNG saved from your camera.",
+            "Analysis completed but validation failed. Please try again, or use a smaller photo.",
           ...(detail ? { debug: detail } : {}),
         },
         { status: 502 }

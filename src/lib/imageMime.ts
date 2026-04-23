@@ -1,3 +1,16 @@
+/** Strip UTF-8 BOM so PNG/JPEG magic bytes are visible. */
+export function stripUtf8Bom(buffer: Buffer): Buffer {
+  if (
+    buffer.length >= 3 &&
+    buffer[0] === 0xef &&
+    buffer[1] === 0xbb &&
+    buffer[2] === 0xbf
+  ) {
+    return buffer.subarray(3);
+  }
+  return buffer;
+}
+
 /**
  * Detect actual image format from magic bytes. Browsers often set `File.type`
  * from the filename (e.g. `.png`) even when the file is JPEG — Anthropic vision
@@ -68,23 +81,21 @@ export function prepareImageForVision(
   buffer: Buffer,
   declaredMime: string,
 ): PreparedVisionImage {
-  const sniff = detectImageMimeType(buffer);
+  const raw = stripUtf8Bom(buffer);
+  const sniff = detectImageMimeType(raw);
+  const declared = (declaredMime ?? "").trim();
   let effective =
     sniff ??
-    (declaredMime && declaredMime !== "application/octet-stream"
-      ? declaredMime
+    (declared && declared !== "application/octet-stream"
+      ? declared
       : "image/jpeg");
 
-  if (
-    sniff &&
-    declaredMime.startsWith("image/") &&
-    sniff !== declaredMime
-  ) {
+  if (sniff && declared.startsWith("image/") && sniff !== declared) {
     effective = sniff;
   }
 
   if (ANTHROPIC_VISION_SUPPORTED.has(effective)) {
-    return { buffer, mediaType: effective };
+    return { buffer: raw, mediaType: effective };
   }
 
   if (effective === "image/heic" || effective === "image/avif") {
