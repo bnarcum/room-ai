@@ -144,17 +144,24 @@ export default function ResultsClient() {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center bg-zinc-50 px-4 py-10 text-zinc-900">
+    <div className="app-backdrop flex min-h-full flex-1 flex-col items-center px-4 py-12 text-zinc-100">
       <main className="w-full max-w-3xl">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="surface-card rounded-3xl p-7 shadow-[0_24px_80px_-24px_rgba(0,0,0,0.65)]">
           <div className="flex items-start justify-between gap-4">
             <div className="grid gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight">Results</h1>
-              <p className="text-sm leading-6 text-zinc-600">
-                Scroll to <strong>Downloads</strong> for the Collab{" "}
-                <code className="font-mono text-xs">.vrc.json</code> file. That
-                export embeds your analysis under{" "}
-                <code className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-xs">
+              <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-cyan-400/90">
+                Output
+              </p>
+              <h1 className="text-3xl font-semibold tracking-tight text-white">
+                Results
+              </h1>
+              <p className="text-sm leading-relaxed text-zinc-400">
+                Scroll to <strong className="font-semibold text-zinc-200">Downloads</strong> for the Collab{" "}
+                <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-cyan-100/95">
+                  .vrc.json
+                </code>{" "}
+                file. That export embeds your analysis under{" "}
+                <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-cyan-100/95">
                   roomAi
                 </code>
                 , room defaults, and a starter table / display / Room Bar Pro
@@ -165,32 +172,32 @@ export default function ResultsClient() {
 
             <Link
               href="/"
-              className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm hover:bg-zinc-50"
+              className="shrink-0 rounded-xl border border-white/10 bg-zinc-950/60 px-4 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-cyan-400/30 hover:bg-cyan-500/10 hover:text-cyan-50"
             >
               New analysis
             </Link>
           </div>
 
           <section
-            className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-5"
+            className="mt-8 rounded-2xl border border-white/10 bg-zinc-950/40 p-6"
             aria-label="Download exports"
           >
-            <h2 className="text-base font-semibold text-zinc-900">Downloads</h2>
-            <p className="mt-1 text-sm leading-6 text-zinc-600">
+            <h2 className="text-base font-semibold text-white">Downloads</h2>
+            <p className="mt-1 text-sm leading-relaxed text-zinc-400">
               Use the first button for{" "}
-              <span className="whitespace-nowrap">collabexperience.com</span>. The
+              <span className="whitespace-nowrap text-zinc-300">collabexperience.com</span>. The
               third button is only the app&apos;s{" "}
-              <code className="font-mono text-xs">{`{ ok, data }`}</code> JSON — not
+              <code className="rounded bg-white/10 px-1 py-0.5 font-mono text-[11px] text-zinc-200">{`{ ok, data }`}</code> JSON — not
               for Video Room Calculator.
             </p>
 
-            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
-              <span className="font-semibold">Import tip:</span>{" "}
-              <code className="rounded bg-amber-100 px-1 py-0.5 font-mono text-xs">
+            <div className="mt-4 rounded-xl border border-cyan-400/20 bg-cyan-500/[0.06] px-4 py-3 text-sm leading-relaxed text-cyan-50/95">
+              <span className="font-semibold text-cyan-200">Import tip:</span>{" "}
+              <code className="rounded bg-black/35 px-1.5 py-0.5 font-mono text-xs text-cyan-100">
                 room-ai-analysis.json
               </code>{" "}
               cannot be opened in Video Room Calculator — you need{" "}
-              <code className="rounded bg-amber-100 px-1 py-0.5 font-mono text-xs">
+              <code className="rounded bg-black/35 px-1.5 py-0.5 font-mono text-xs text-cyan-100">
                 .vrc.json
               </code>{" "}
               (first button) or convert with &quot;Choose JSON file…&quot; at the
@@ -202,7 +209,7 @@ export default function ResultsClient() {
                 type="button"
                 onClick={onDownloadVrcJson}
                 disabled={!canExportVrc}
-                className="order-1 w-full rounded-lg bg-zinc-900 px-4 py-3 text-sm font-semibold text-white hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 sm:order-none sm:w-auto sm:px-3 sm:py-2"
+                className="btn-accent order-1 w-full rounded-xl px-4 py-3 text-sm font-semibold disabled:cursor-not-allowed sm:order-none sm:w-auto sm:px-4 sm:py-2.5"
                 title={
                   canExportVrc
                     ? "Opens in collabexperience.com Video Room Calculator"
@@ -217,7 +224,7 @@ export default function ResultsClient() {
                 type="button"
                 onClick={onCopyLink}
                 disabled={loading || !pretty}
-                className="order-2 w-full rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 sm:order-none sm:w-auto sm:px-3 sm:py-2"
+                className="order-2 w-full rounded-xl border border-white/10 bg-zinc-950/60 px-4 py-3 text-sm font-semibold text-zinc-100 transition-colors hover:border-white/20 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-45 sm:order-none sm:w-auto sm:px-4 sm:py-2.5"
               >
                 {copied ? "Copied" : "Copy results"}
               </button>
@@ -225,7 +232,7 @@ export default function ResultsClient() {
                 type="button"
                 onClick={onDownloadJson}
                 disabled={loading || !pretty}
-                className="order-3 w-full rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 sm:order-none sm:w-auto sm:px-3 sm:py-2"
+                className="order-3 w-full rounded-xl border border-white/10 bg-zinc-950/60 px-4 py-3 text-sm font-semibold text-zinc-100 transition-colors hover:border-white/20 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-45 sm:order-none sm:w-auto sm:px-4 sm:py-2.5"
                 title="App export only — not for Video Room Calculator"
               >
                 Download full analysis (room-ai).json
@@ -233,20 +240,22 @@ export default function ResultsClient() {
             </div>
           </section>
           {loading ? (
-            <p className="mt-2 text-xs text-zinc-500">
+            <p className="mt-3 text-xs text-zinc-500">
               Loading saved results from this browser tab…
             </p>
           ) : null}
           {!loading && !decoded ? (
-            <div className="mt-6 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
+            <div className="mt-6 rounded-xl border border-white/10 bg-zinc-950/50 p-4 text-sm text-zinc-300">
               No results in this tab yet. Go back and analyze a photo, or use{" "}
-              <strong>Choose JSON file…</strong> below to build a{" "}
-              <code className="font-mono text-xs">.vrc.json</code> from an older
-              export.
+              <strong className="text-white">Choose JSON file…</strong> below to build a{" "}
+              <code className="rounded bg-white/10 px-1 py-0.5 font-mono text-xs">
+                .vrc.json
+              </code>{" "}
+              from an older export.
             </div>
           ) : null}
           {!loading && decoded && decoded.ok === false ? (
-            <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <div className="mt-6 rounded-xl border border-red-500/30 bg-red-950/45 p-4 text-sm text-red-200">
               {decoded.error}
             </div>
           ) : null}
@@ -254,35 +263,37 @@ export default function ResultsClient() {
           {!loading && decoded && decoded.ok ? (
             <>
               {analysis ? (
-                <div className="mt-6 grid gap-6">
-                  <div className="rounded-xl border border-zinc-200 bg-white p-4">
+                <div className="mt-8 grid gap-6">
+                  <div className="rounded-2xl border border-white/10 bg-zinc-950/35 p-5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="text-sm font-medium">Estimated dimensions</div>
+                      <div className="text-sm font-medium text-zinc-100">
+                        Estimated dimensions
+                      </div>
                       {meta?.model ? (
                         <div className="text-xs text-zinc-500">
                           Model: {meta.model}
                         </div>
                       ) : null}
                     </div>
-                    <div className="mt-3 grid gap-2 text-sm">
-                      <div className="flex flex-wrap gap-x-6 gap-y-1">
+                    <div className="mt-4 grid gap-2 text-sm">
+                      <div className="flex flex-wrap gap-x-8 gap-y-2">
                         <div>
                           <span className="text-zinc-500">Length:</span>{" "}
-                          <span className="font-semibold">
+                          <span className="font-semibold text-white">
                             {analysis.dimensions.length}{" "}
                             {analysis.dimensions.unit}
                           </span>
                         </div>
                         <div>
                           <span className="text-zinc-500">Width:</span>{" "}
-                          <span className="font-semibold">
+                          <span className="font-semibold text-white">
                             {analysis.dimensions.width}{" "}
                             {analysis.dimensions.unit}
                           </span>
                         </div>
                         <div>
                           <span className="text-zinc-500">Height:</span>{" "}
-                          <span className="font-semibold">
+                          <span className="font-semibold text-white">
                             {analysis.dimensions.height}{" "}
                             {analysis.dimensions.unit}
                           </span>
@@ -296,26 +307,28 @@ export default function ResultsClient() {
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
-                    <div className="text-sm font-medium">Room summary</div>
-                    <div className="mt-2 grid gap-2 text-sm">
+                  <div className="rounded-2xl border border-white/10 bg-zinc-950/25 p-5">
+                    <div className="text-sm font-medium text-zinc-100">
+                      Room summary
+                    </div>
+                    <div className="mt-3 grid gap-2 text-sm">
                       <div>
                         <span className="text-zinc-500">Likely use:</span>{" "}
-                        <span className="font-semibold">
+                        <span className="font-semibold text-zinc-100">
                           {analysis.roomSummary.likelyUse}
                         </span>
                       </div>
                       <div>
                         <span className="text-zinc-500">Occupancy:</span>{" "}
-                        <span className="font-semibold">
+                        <span className="font-semibold text-zinc-100">
                           {analysis.roomSummary.occupancy}
                         </span>
                       </div>
-                      <div className="text-xs text-zinc-600">
-                        <div className="font-medium text-zinc-700">
+                      <div className="text-xs text-zinc-400">
+                        <div className="font-medium text-zinc-300">
                           Key constraints
                         </div>
-                        <ul className="mt-1 list-disc pl-5">
+                        <ul className="mt-2 list-disc pl-5 text-zinc-400">
                           {analysis.roomSummary.keyConstraints.map((c, i) => (
                             <li key={i}>{c}</li>
                           ))}
@@ -324,9 +337,11 @@ export default function ResultsClient() {
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-zinc-200 bg-white p-4">
-                    <div className="text-sm font-medium">Recommendations</div>
-                    <div className="mt-3 grid gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-zinc-950/35 p-5">
+                    <div className="text-sm font-medium text-zinc-100">
+                      Recommendations
+                    </div>
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
                       {(
                         [
                           ["Camera", analysis.recommendations.camera],
@@ -341,10 +356,12 @@ export default function ResultsClient() {
                       ).map(([title, items]) => (
                         <div
                           key={title}
-                          className="rounded-lg border border-zinc-200 p-3"
+                          className="rounded-xl border border-white/[0.07] bg-black/25 p-4 transition-colors hover:border-cyan-400/15"
                         >
-                          <div className="text-sm font-semibold">{title}</div>
-                          <ul className="mt-2 list-disc pl-5 text-sm text-zinc-700">
+                          <div className="text-sm font-semibold text-cyan-100/90">
+                            {title}
+                          </div>
+                          <ul className="mt-2 list-disc pl-5 text-sm text-zinc-400">
                             {items.map((it, i) => (
                               <li key={i}>{it}</li>
                             ))}
@@ -354,9 +371,11 @@ export default function ResultsClient() {
                     </div>
                   </div>
 
-                  <div className="rounded-xl border border-zinc-200 bg-zinc-950 p-4 text-zinc-100">
-                    <div className="text-sm font-medium">Quick checklist</div>
-                    <ul className="mt-2 list-disc pl-5 text-sm text-zinc-200">
+                  <div className="rounded-2xl border border-cyan-400/25 bg-gradient-to-br from-cyan-950/50 to-zinc-950/80 p-5">
+                    <div className="text-sm font-medium text-cyan-50">
+                      Quick checklist
+                    </div>
+                    <ul className="mt-3 list-disc pl-5 text-sm text-zinc-300">
                       {analysis.quickChecklist.map((it, i) => (
                         <li key={i}>{it}</li>
                       ))}
@@ -365,35 +384,37 @@ export default function ResultsClient() {
                 </div>
               ) : null}
 
-              <div className="mt-6">
-                <div className="text-sm font-medium">Raw output</div>
+              <div className="mt-8">
+                <div className="text-sm font-medium text-zinc-100">
+                  Raw output
+                </div>
                 <p className="mt-1 text-xs text-zinc-500">
                   This is the same JSON as &quot;Download full analysis&quot; — not a
                   Collab Experience import file.
                 </p>
-                <pre className="mt-2 max-h-[60vh] overflow-auto rounded-xl border border-zinc-200 bg-zinc-950 p-4 text-xs leading-5 text-zinc-100">
+                <pre className="mt-3 max-h-[60vh] overflow-auto rounded-2xl border border-white/10 bg-black/60 p-4 text-xs leading-relaxed text-zinc-300 [font-variant-ligatures:none]">
                   {pretty}
                 </pre>
               </div>
             </>
           ) : null}
 
-          <div className="mt-8 border-t border-zinc-200 pt-6">
-            <div className="text-sm font-medium text-zinc-900">
+          <div className="mt-10 border-t border-white/10 pt-8">
+            <div className="text-sm font-medium text-zinc-100">
               Convert saved room-ai JSON → Collab (.vrc.json)
             </div>
-            <p className="mt-1 text-sm leading-6 text-zinc-600">
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
               If you only have an older export like{" "}
-              <code className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-xs">
+              <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-zinc-200">
                 room-analysisv4.json
               </code>{" "}
               ({`ok`}/{`data`}), choose it here and we will download a proper{" "}
-              <code className="rounded bg-zinc-100 px-1 py-0.5 font-mono text-xs">
+              <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-zinc-200">
                 .vrc.json
               </code>{" "}
               you can open on collabexperience.com.
             </p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               <input
                 ref={convertInputRef}
                 type="file"
@@ -404,17 +425,17 @@ export default function ResultsClient() {
               <button
                 type="button"
                 onClick={() => convertInputRef.current?.click()}
-                className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-zinc-50"
+                className="rounded-xl border border-white/10 bg-zinc-950/60 px-4 py-2.5 text-sm font-semibold text-zinc-100 transition-colors hover:border-cyan-400/35 hover:bg-cyan-500/10 hover:text-cyan-50"
               >
                 Choose JSON file…
               </button>
             </div>
             {convertNote ? (
               <p
-                className={`mt-3 text-sm ${
+                className={`mt-3 rounded-xl border px-3 py-2 text-sm ${
                   convertNote.kind === "ok"
-                    ? "text-green-800"
-                    : "text-red-700"
+                    ? "border-emerald-500/25 bg-emerald-950/35 text-emerald-200"
+                    : "border-red-500/25 bg-red-950/40 text-red-200"
                 }`}
               >
                 {convertNote.text}

@@ -1,8 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+  --background: #09090b;
+  --foreground: #fafafa;
+  --muted: #a1a1aa;
+  --surface: rgba(24, 24, 27, 0.72);
+  --surface-solid: #18181b;
+  --border: rgba(255, 255, 255, 0.08);
+  --accent: #22d3ee;
+  --accent-dim: rgba(34, 211, 238, 0.14);
+  --accent-glow: 0 0 40px -8px rgba(34, 211, 238, 0.45);
 }
 
 @theme inline {
@@ -12,15 +20,69 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
-body {
-  background: var(--background);
+::selection {
+  background-color: rgba(34, 211, 238, 0.25);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+/** Subtle depth: soft cyan bloom + hairline grid (Apple-quiet, neon hint) */
+.app-backdrop {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(
+      ellipse 100% 80% at 50% -30%,
+      rgba(34, 211, 238, 0.09),
+      transparent 55%
+    ),
+    linear-gradient(
+        rgba(255, 255, 255, 0.03) 1px,
+        transparent 1px
+      )
+      0 0 / 48px 48px,
+    linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.03) 1px,
+        transparent 1px
+      )
+      0 0 / 48px 48px;
+}
+
+/** Primary CTA — minimal base + cyber glow */
+.btn-accent {
+  background: linear-gradient(180deg, #2dd4bf 0%, #06b6d4 100%);
+  color: #0a0a0a;
+  box-shadow: var(--accent-glow);
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.15s ease,
+    filter 0.2s ease;
+}
+
+.btn-accent:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow:
+    0 0 48px -6px rgba(34, 211, 238, 0.55),
+    0 0 80px -20px rgba(34, 211, 238, 0.25);
+}
+
+.btn-accent:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-accent:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+}
+
+.surface-card {
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
 }
