@@ -1,5 +1,5 @@
-const PAD_REC =
-  "Review this area using what is visible in the photo and adjust for your layout.";
+import { RECOMMENDATION_CATEGORY_FALLBACKS } from "./webexDesignerResources";
+
 const PAD_CHECK = "Confirm network drops, power, and cable paths for your gear.";
 const PAD_CONSTRAINT =
   "Single-photo view limits precision; verify measurements on site.";
@@ -34,6 +34,16 @@ function stringArray(v: unknown, pad: string): string[] {
     .map((x) => (typeof x === "string" ? x.trim() : String(x)))
     .filter((s) => s.length > 0);
   return out.length ? out : [pad];
+}
+
+/** Parsed model strings only — empty means “use category fallbacks”, not a generic pad. */
+function nonEmptyRecommendationStrings(v: unknown): string[] {
+  if (!Array.isArray(v)) {
+    return typeof v === "string" && v.trim() ? [v.trim()] : [];
+  }
+  return v
+    .map((x) => (typeof x === "string" ? x.trim() : String(x)))
+    .filter((s) => s.length > 0);
 }
 
 /** Like stringArray but allows truly empty lists (no pad) for optional inventories. */
@@ -125,7 +135,11 @@ export function coerceRoomAnalysisPayload(raw: unknown): unknown {
   ] as const;
   const recommendations: Record<string, string[]> = {};
   for (const k of keys) {
-    recommendations[k] = stringArray(rec[k], PAD_REC);
+    const parsed = nonEmptyRecommendationStrings(rec[k]);
+    recommendations[k] =
+      parsed.length > 0
+        ? parsed
+        : [...RECOMMENDATION_CATEGORY_FALLBACKS[k]];
   }
   base.recommendations = recommendations;
 

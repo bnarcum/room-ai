@@ -1,18 +1,10 @@
 "use client";
 
-import {
-  type ChangeEvent,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   buildVideoRoomCalculatorJson,
-  tryBuildVrcFromRoomAiJson,
   vrcJsonFileName,
 } from "@/lib/collabExperienceExport";
 import {
@@ -44,12 +36,6 @@ export default function ResultsClient() {
   const [decoded, setDecoded] = useState<AnalyzeEnvelope | null>(null);
   /** False until we've read sessionStorage / URL on the client (avoid useSearchParams — it forces CSR bailout). */
   const [ready, setReady] = useState(false);
-  const [convertNote, setConvertNote] = useState<{
-    kind: "ok" | "err";
-    text: string;
-  } | null>(null);
-  const convertInputRef = useRef<HTMLInputElement>(null);
-
   const [designerFile, setDesignerFile] = useState<File | null>(null);
   const [designerStatus, setDesignerStatus] = useState<
     "idle" | "uploading" | "error"
@@ -227,7 +213,7 @@ export default function ResultsClient() {
     a.click();
     URL.revokeObjectURL(url);
     setExportTip(
-      "Saved room-ai JSON — archive or share this file; to open in Collab, use Choose JSON file… below or download .vrc.json instead.",
+      "Saved room-ai JSON — archive or share this file. For Collab Experience, use Download for Collab Experience (.vrc.json) above.",
     );
   }
 
@@ -263,38 +249,6 @@ export default function ResultsClient() {
     setExportTip(
       "Downloaded Webex room JSON — at designer.webex.com open Custom rooms and drag this file onto the 3D view.",
     );
-  }
-
-  async function onConvertEnvelopeFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    setConvertNote(null);
-    if (!file) return;
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(await file.text());
-    } catch {
-      setConvertNote({ kind: "err", text: "That file is not valid JSON." });
-      return;
-    }
-    const result = tryBuildVrcFromRoomAiJson(parsed);
-    if (!result.ok) {
-      setConvertNote({ kind: "err", text: result.error });
-      return;
-    }
-    const filename = vrcJsonFileName(result.vrc.name);
-    const text = JSON.stringify(result.vrc, null, 2);
-    const blob = new Blob([text], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-    setConvertNote({
-      kind: "ok",
-      text: `Downloaded ${filename}. Import that file on collabexperience.com (not the original).`,
-    });
   }
 
   return (
@@ -366,8 +320,8 @@ export default function ResultsClient() {
                     Archive or tooling
                   </strong>{" "}
                   → &quot;Download full analysis&quot; or &quot;Copy analysis
-                  JSON&quot; — same app payload; use for backups or converting with
-                  &quot;Choose JSON file…&quot; below, not as a Collab import.
+                  JSON&quot; — same Room AI payload for your records; not a Collab or
+                  Webex import file.
                 </li>
               </ul>
             </details>
@@ -398,8 +352,7 @@ export default function ResultsClient() {
               <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.65)] px-1.5 py-0.5 font-mono text-[13px] text-[hsl(210_40%_96%)]">
                 .vrc.json
               </code>{" "}
-              (first button) or convert with &quot;Choose JSON file…&quot; at the
-              bottom.
+              (first button).
             </div>
 
             <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -413,7 +366,7 @@ export default function ResultsClient() {
                     ? "Opens in collabexperience.com Video Room Calculator"
                     : loading
                       ? "Loading saved results…"
-                      : "Run an analysis first, or convert a saved JSON file below"
+                      : "Run an analysis first"
                 }
               >
                 Download for Collab Experience (.vrc.json)
@@ -428,7 +381,7 @@ export default function ResultsClient() {
                     ? "Workspace Designer Custom rooms — drag JSON onto the 3D canvas"
                     : loading
                       ? "Loading saved results…"
-                      : "Run an analysis first, or convert a saved JSON file below"
+                      : "Run an analysis first"
                 }
               >
                 Download for Webex Workspace Designer (.json)
@@ -437,7 +390,7 @@ export default function ResultsClient() {
                 type="button"
                 onClick={onCopyAnalysisJson}
                 disabled={loading || !pretty}
-                title="Copies the full analysis JSON to the clipboard — for backup or converting below. Collab/Webex need the dedicated download buttons."
+                title="Copies the full analysis JSON to the clipboard — for backup or notes. Collab/Webex need the dedicated download buttons."
                 className="order-3 w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-3 text-[15px] font-semibold text-[hsl(210_40%_96%)] transition-colors hover:border-[hsl(217_33%_35%)] hover:bg-[hsl(217_33%_18%/0.95)] disabled:cursor-not-allowed disabled:opacity-45 sm:order-none sm:w-auto sm:px-4 sm:py-2.5"
               >
                 {copiedJson ? "Copied JSON" : "Copy analysis JSON"}
@@ -620,12 +573,14 @@ export default function ResultsClient() {
           ) : null}
           {!loading && !decoded ? (
             <div className="mt-6 rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.65)] p-4 text-[15px] leading-relaxed text-[hsl(215_20%_84%)]">
-              No results in this tab yet. Go back and analyze a photo, or use{" "}
-              <strong className="text-white">Choose JSON file…</strong> below to build a{" "}
-              <code className="rounded border border-[hsl(217_33%_28%)] bg-[hsl(217_33%_18%/0.9)] px-1 py-0.5 font-mono text-xs text-[hsl(277_90%_75%)]">
-                .vrc.json
-              </code>{" "}
-              from an older export.
+              No results in this tab yet. Go back and run{" "}
+              <Link
+                href="/"
+                className="font-semibold text-white underline decoration-[hsl(277_90%_65%/0.45)] underline-offset-2 hover:decoration-[hsl(277_90%_72%)]"
+              >
+                Room Vision Analyzer
+              </Link>{" "}
+              on a photo to populate this page.
             </div>
           ) : null}
           {!loading && decoded && decoded.ok === false ? (
@@ -635,8 +590,7 @@ export default function ResultsClient() {
           ) : null}
 
           {!loading && decoded && decoded.ok ? (
-            <>
-              {analysis ? (
+              analysis ? (
                 <div className="mt-8 grid gap-6">
                   <div className="rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.45)] p-5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -786,80 +740,9 @@ export default function ResultsClient() {
                       ))}
                     </div>
                   </div>
-
-                  <div className="rounded-2xl border border-[hsl(277_90%_65%/0.28)] bg-gradient-to-br from-[hsl(277_45%_16%/0.55)] to-[hsl(217_33%_14%/0.95)] p-5">
-                    <div className="text-[15px] font-medium text-[hsl(210_40%_98%)]">
-                      Quick checklist
-                    </div>
-                    <ul className="mt-3 list-disc pl-5 text-[15px] leading-relaxed text-[hsl(215_20%_82%)]">
-                      {analysis.quickChecklist.map((it, i) => (
-                        <li key={i}>{it}</li>
-                      ))}
-                    </ul>
-                  </div>
                 </div>
               ) : null}
-
-              <div className="mt-8">
-                <div className="text-sm font-medium text-[hsl(210_40%_98%)]">
-                  Raw output
-                </div>
-                <p className="copy-muted mt-2">
-                  This is the same JSON as &quot;Download full analysis&quot; — not a
-                  Collab Experience import file.
-                </p>
-                <pre className="mt-3 max-h-[60vh] overflow-auto rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(220_25%_7%/0.92)] p-4 text-[13px] leading-relaxed text-[hsl(215_20%_82%)] [font-variant-ligatures:none]">
-                  {pretty}
-                </pre>
-              </div>
-            </>
           ) : null}
-
-          <div className="mt-10 border-t border-[hsl(217_33%_25%)] pt-8">
-            <div className="text-sm font-medium text-[hsl(210_40%_98%)]">
-              Convert saved room-ai JSON → Collab (.vrc.json)
-            </div>
-            <p className="copy-readable mt-2">
-              If you only have an older export like{" "}
-              <code className="rounded border border-[hsl(217_33%_28%)] bg-[hsl(217_33%_18%/0.9)] px-1.5 py-0.5 font-mono text-xs text-[hsl(215_20%_88%)]">
-                room-analysisv4.json
-              </code>{" "}
-              ({`ok`}/{`data`}), choose it here and we will download a proper{" "}
-              <code className="rounded border border-[hsl(217_33%_28%)] bg-[hsl(217_33%_18%/0.9)] px-1.5 py-0.5 font-mono text-xs text-[hsl(215_20%_88%)]">
-                .vrc.json
-              </code>{" "}
-              you can open on collabexperience.com.
-            </p>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <input
-                ref={convertInputRef}
-                type="file"
-                accept=".json,application/json"
-                className="hidden"
-                onChange={onConvertEnvelopeFile}
-              />
-              <button
-                type="button"
-                onClick={() => convertInputRef.current?.click()}
-                className="rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2.5 text-[15px] font-semibold text-[hsl(210_40%_96%)] transition-colors hover:border-[hsl(277_90%_65%/0.45)] hover:bg-[hsl(277_90%_65%/0.1)] hover:text-[hsl(210_40%_98%)]"
-              >
-                Choose JSON file…
-              </button>
-            </div>
-            {convertNote ? (
-              <p
-                className={`mt-3 rounded-xl border px-3 py-2 text-sm ${
-                  convertNote.kind === "ok"
-                    ? "border-emerald-500/25 bg-emerald-950/35 text-emerald-200"
-                    : "border-red-500/25 bg-red-950/40 text-red-200"
-                }`}
-                role={convertNote.kind === "ok" ? "status" : "alert"}
-                aria-live="polite"
-              >
-                {convertNote.text}
-              </p>
-            ) : null}
-          </div>
         </div>
       </main>
     </div>

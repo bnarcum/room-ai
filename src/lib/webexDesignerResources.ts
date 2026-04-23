@@ -60,6 +60,47 @@ export const WEBEX_DESIGNER_INTRO_RESOURCES: readonly WebexDesignerResourceLink[
 /**
  * Extra rubric text injected into Claude system prompts for room analysis.
  */
+/**
+ * When the vision model omits or empties a recommendations category, coercion fills with
+ * these grounded bullets (never the generic single-line pad). Keys match `coerceRoomAnalysis`.
+ */
+export const RECOMMENDATION_CATEGORY_FALLBACKS = {
+  camera: [
+    "Place the primary meeting camera near eye level for seated participants and aim it to include both the main display and the primary seating arc (Webex Workspace Designer hub: https://designer.webex.com/#/article/Intro).",
+    "Avoid having bright windows directly behind active speakers relative to the camera; add diffusion or reposition seating so faces stay evenly lit (Cisco Workspace Design Best Practices PDF: https://www.cisco.com/c/dam/en/us/td/docs/telepresence/endpoint/technical-papers/workspace-best-practices.pdf).",
+  ],
+  lighting: [
+    "Add soft, diffuse frontal light on participant faces for video quality; balance ambient light with task lighting at the table (Workspace Design Best Practices PDF: https://www.cisco.com/c/dam/en/us/td/docs/telepresence/endpoint/technical-papers/workspace-best-practices.pdf).",
+    "Reduce glare on displays from overhead fixtures or daylight by tilting blinds or adjusting fixture aim (Photorealistic renders: https://designer.webex.com/#/article/PhotoRealisticRenders).",
+  ],
+  acoustics: [
+    "Treat hard parallel walls or large glass with absorption (panels, drapes, rugs) where speech echo or HVAC noise competes with remote audio (Workspace Best Practices PDF above).",
+    "Keep noisy HVAC vents away from microphones and seating when possible; note ceiling height impact on reverberation (Introduction to Designer scales: https://designer.webex.com/#/article/Intro).",
+  ],
+  display: [
+    "Size and mount the main collaboration display so text is legible from the farthest planned seat; align eye line from seated height (Webex Workspaces inspiration: https://webex.com/workspaces).",
+    "Route HDMI/USB-C paths so presenters can connect without crossing walkways; label inputs for hybrid guests (Custom rooms / integration context: https://designer.webex.com/#/article/CustomRooms).",
+  ],
+  seating: [
+    "Arrange seating within comfortable viewing angles to the display and camera; leave clearance behind chairs for egress (Workspace Best Practices PDF).",
+    "Match chair count and table length to typical meeting size for the room to avoid crowding or unused depth (Webex Workspaces: https://webex.com/workspaces).",
+  ],
+  cabling: [
+    "Use floor cores or perimeter raceways so presentation cables reach the table without trip hazards (Workspace Best Practices PDF).",
+    "Plan redundant paths for codec, camera, and touch-controller cables with service loops for furniture moves (Designer overview: https://designer.webex.com/#/article/Intro).",
+  ],
+  network: [
+    "Provide wired Ethernet drops at the table for codec or Room Bar stability; reserve bandwidth for HD video uplink and screen share (Workspace Best Practices PDF).",
+    "Document VLAN or QoS policy for collaboration traffic if Wi‑Fi backup is used for laptops (Webex Workspaces planning: https://webex.com/workspaces).",
+  ],
+  power: [
+    "Confirm sufficient circuits for displays, compute, and furniture-mounted outlets without daisy-chaining consumer strips (Workspace Best Practices PDF).",
+    "Place outlets along the table edge or base for laptops and USB-C docks; align with cable routing to avoid cords across walkways (Designer Introduction: https://designer.webex.com/#/article/Intro).",
+  ],
+} as const;
+
+export type RecommendationCategoryKey = keyof typeof RECOMMENDATION_CATEGORY_FALLBACKS;
+
 export function buildWebexDesignerResourcesRubricSection(): string {
   const lines = WEBEX_DESIGNER_INTRO_RESOURCES.map(
     (r) => `- **${r.title}** — ${r.note} ${r.url}`,

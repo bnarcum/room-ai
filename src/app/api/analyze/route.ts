@@ -282,6 +282,11 @@ export async function POST(request: Request) {
         "If the estimate is uncertain, lower confidence and explain why.",
         "Then provide practical improvement suggestions aligned to a Webex-style room design rubric.",
         "",
+        "Recommendations discipline:",
+        "- Every recommendations.* array (camera, lighting, acoustics, display, seating, cabling, network, power) must contain at least two distinct, specific strings.",
+        "- Ground advice in what is visible in the photo or render; where visibility is limited, say so and suggest a safe default.",
+        "- Tie bullets to the official Workspace Designer Resources links and Cisco PDF in the rubric where relevant (use exact URLs from that list). Do not repeat one generic sentence across every category.",
+        "",
         rubric,
         "",
         jsonShape,
@@ -296,7 +301,7 @@ export async function POST(request: Request) {
     isWorkspaceDesignerRender ? WORKSPACE_DESIGNER_RENDER_USER_FOOTER : null,
     isWorkspaceDesignerRender
       ? "Task: Evaluate this Workspace Designer render for hybrid-meeting readiness; estimate dimensions from depicted geometry and scale cues; fill observedItems with every visible collaboration-relevant object (displays, codecs/bars, cameras, seating, laptops, plants, decor). Name items consistently when you reference them in recommendations or quickChecklist."
-      : "Task: Estimate length, width, height. Fill observedItems with visible laptops, plants, decor, and other notable objects (use empty arrays only when nothing applies). When you cite those items in recommendations or quickChecklist, name them the same way here first.",
+      : "Task: Estimate length, width, height. Fill observedItems with visible laptops, plants, decor, and other notable objects (use empty arrays only when nothing applies). When you cite those items in recommendations or quickChecklist, name them the same way here first. For recommendations, write substantive Webex-aligned bullets per category (camera through power), not placeholder text.",
   ]
     .filter(Boolean)
     .join("\n");
