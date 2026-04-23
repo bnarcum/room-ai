@@ -39,7 +39,8 @@ type AnalyzeEnvelope =
 
 export default function ResultsClient() {
   const pathname = usePathname();
-  const [copied, setCopied] = useState(false);
+  const [copiedJson, setCopiedJson] = useState(false);
+  const [exportTip, setExportTip] = useState<string | null>(null);
   const [decoded, setDecoded] = useState<AnalyzeEnvelope | null>(null);
   /** False until we've read sessionStorage / URL on the client (avoid useSearchParams — it forces CSR bailout). */
   const [ready, setReady] = useState(false);
@@ -70,6 +71,12 @@ export default function ResultsClient() {
       if (designerPreviewUrl) URL.revokeObjectURL(designerPreviewUrl);
     };
   }, [designerPreviewUrl]);
+
+  useEffect(() => {
+    if (!exportTip) return;
+    const id = window.setTimeout(() => setExportTip(null), 8000);
+    return () => window.clearTimeout(id);
+  }, [exportTip]);
 
   type PhotorealOk = {
     ok: true;
@@ -199,14 +206,14 @@ export default function ResultsClient() {
   const loading = !ready;
   const canExportVrc = Boolean(ready && analysis);
 
-  async function onCopyLink() {
+  async function onCopyAnalysisJson() {
+    if (!pretty) return;
     try {
-      const text = pretty ?? window.location.href;
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      await navigator.clipboard.writeText(pretty);
+      setCopiedJson(true);
+      setTimeout(() => setCopiedJson(false), 1800);
     } catch {
-      setCopied(false);
+      setCopiedJson(false);
     }
   }
 
@@ -219,6 +226,9 @@ export default function ResultsClient() {
     a.download = "room-ai-analysis.json";
     a.click();
     URL.revokeObjectURL(url);
+    setExportTip(
+      "Saved room-ai JSON — archive or share this file; to open in Collab, use Choose JSON file… below or download .vrc.json instead.",
+    );
   }
 
   function onDownloadVrcJson() {
@@ -234,6 +244,9 @@ export default function ResultsClient() {
     a.download = vrcJsonFileName(vrc.name);
     a.click();
     URL.revokeObjectURL(url);
+    setExportTip(
+      "Downloaded .vrc.json — import that file on collabexperience.com (Video Room Calculator). Not the same as room-ai-analysis.json.",
+    );
   }
 
   function onDownloadWebexDesignerJson() {
@@ -247,6 +260,9 @@ export default function ResultsClient() {
     a.download = webexDesignerJsonFileName(doc.title);
     a.click();
     URL.revokeObjectURL(url);
+    setExportTip(
+      "Downloaded Webex room JSON — at designer.webex.com open Custom rooms and drag this file onto the 3D view.",
+    );
   }
 
   async function onConvertEnvelopeFile(e: ChangeEvent<HTMLInputElement>) {
@@ -321,7 +337,42 @@ export default function ResultsClient() {
             aria-label="Download exports"
           >
             <h2 className="text-base font-semibold text-white">Downloads</h2>
-            <p className="copy-readable mt-2">
+
+            <details className="mt-3 rounded-xl border border-[hsl(217_33%_22%)] bg-[hsl(220_25%_10%/0.35)] px-4 py-3 [&_summary]:cursor-pointer [&_summary]:font-medium [&_summary]:text-[hsl(215_20%_90%)] [&_summary]:outline-none [&_summary]:marker:text-[hsl(215_20%_58%)]">
+              <summary className="select-none">
+                Which file should I download?
+              </summary>
+              <ul className="copy-readable mt-3 list-disc space-y-2 pl-5 text-[15px] leading-relaxed">
+                <li>
+                  <strong className="font-semibold text-[hsl(210_40%_94%)]">
+                    Collab Experience / Video Room Calculator
+                  </strong>{" "}
+                  → first button (
+                  <code className="rounded border border-[hsl(217_33%_28%)] bg-[hsl(217_33%_18%/0.9)] px-1 py-0.5 font-mono text-[11px]">
+                    .vrc.json
+                  </code>
+                  ). That is the only export Collab can open directly.
+                </li>
+                <li>
+                  <strong className="font-semibold text-[hsl(210_40%_94%)]">
+                    Webex Workspace Designer
+                  </strong>{" "}
+                  → second button (Custom rooms JSON). Drag the downloaded file onto
+                  the 3D canvas at designer.webex.com — do not expect it to load in
+                  Collab.
+                </li>
+                <li>
+                  <strong className="font-semibold text-[hsl(210_40%_94%)]">
+                    Archive or tooling
+                  </strong>{" "}
+                  → &quot;Download full analysis&quot; or &quot;Copy analysis
+                  JSON&quot; — same app payload; use for backups or converting with
+                  &quot;Choose JSON file…&quot; below, not as a Collab import.
+                </li>
+              </ul>
+            </details>
+
+            <p className="copy-readable mt-4">
               <span className="whitespace-nowrap font-medium text-[hsl(215_20%_90%)]">
                 Collab / Video Room Calculator:
               </span>{" "}
@@ -384,11 +435,12 @@ export default function ResultsClient() {
               </button>
               <button
                 type="button"
-                onClick={onCopyLink}
+                onClick={onCopyAnalysisJson}
                 disabled={loading || !pretty}
+                title="Copies the full analysis JSON to the clipboard — for backup or converting below. Collab/Webex need the dedicated download buttons."
                 className="order-3 w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-3 text-[15px] font-semibold text-[hsl(210_40%_96%)] transition-colors hover:border-[hsl(217_33%_35%)] hover:bg-[hsl(217_33%_18%/0.95)] disabled:cursor-not-allowed disabled:opacity-45 sm:order-none sm:w-auto sm:px-4 sm:py-2.5"
               >
-                {copied ? "Copied" : "Copy results"}
+                {copiedJson ? "Copied JSON" : "Copy analysis JSON"}
               </button>
               <button
                 type="button"
@@ -400,6 +452,19 @@ export default function ResultsClient() {
                 Download full analysis (room-ai).json
               </button>
             </div>
+
+            {exportTip ? (
+              <p
+                className="mt-4 rounded-xl border border-[hsl(173_80%_40%/0.35)] bg-[hsl(173_80%_40%/0.1)] px-4 py-3 text-[14px] leading-relaxed text-[hsl(210_40%_94%)]"
+                role="status"
+                aria-live="polite"
+              >
+                <span className="font-semibold text-[hsl(173_85%_52%)]">
+                  Next step:{" "}
+                </span>
+                {exportTip}
+              </p>
+            ) : null}
           </section>
 
           <section
@@ -415,11 +480,13 @@ export default function ResultsClient() {
                   Photorealistic AI render
                 </h2>
                 <p className="copy-readable max-w-[62ch]">
-                  Upload your Workspace Designer snapshot (PNG/JPEG). We send it to
-                  Google Gemini (preferred) or OpenAI image edits with a fixed style
-                  prompt: photorealistic materials and lighting, dollhouse framing (no
-                  ceiling, two walls + floor), white void outside the room, and
-                  diverse business-casual people — without changing layout geometry.
+                  <span className="font-medium text-[hsl(215_20%_90%)]">
+                    Workflow:
+                  </span>{" "}
+                  export a snapshot image from Workspace Designer → upload it here →
+                  download the PNG. The model applies a fixed style (photorealistic
+                  materials and lighting, dollhouse framing, white void outside the
+                  room, people) without changing layout geometry.
                 </p>
               </div>
               <a
@@ -786,6 +853,8 @@ export default function ResultsClient() {
                     ? "border-emerald-500/25 bg-emerald-950/35 text-emerald-200"
                     : "border-red-500/25 bg-red-950/40 text-red-200"
                 }`}
+                role={convertNote.kind === "ok" ? "status" : "alert"}
+                aria-live="polite"
               >
                 {convertNote.text}
               </p>

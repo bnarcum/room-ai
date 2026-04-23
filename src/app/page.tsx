@@ -121,6 +121,17 @@ export default function Home() {
               placement, lighting, acoustics, display, seating, cabling, network,
               and power.
             </p>
+            <p className="copy-muted mt-3 max-w-[52ch] text-[14px] leading-relaxed">
+              When the run finishes, open{" "}
+              <strong className="font-medium text-[hsl(215_20%_88%)]">Results</strong>{" "}
+              for one-click exports to{" "}
+              <span className="whitespace-nowrap">Collab Experience</span> (
+              <code className="rounded border border-[hsl(217_33%_28%)] bg-[hsl(217_33%_18%/0.85)] px-1 py-0.5 font-mono text-[11px]">
+                .vrc.json
+              </code>
+              ) and{" "}
+              <span className="whitespace-nowrap">Webex Workspace Designer</span>.
+            </p>
           </div>
 
           <div className="mt-8 grid gap-8 md:grid-cols-2">
