@@ -19,7 +19,10 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "webex-designer-export": [
+        "./packages/webex-designer-export/src/index.ts"
+      ]
     }
   },
   "include": [

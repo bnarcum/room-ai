@@ -14,6 +14,10 @@ import {
   tryBuildVrcFromRoomAiJson,
   vrcJsonFileName,
 } from "@/lib/collabExperienceExport";
+import {
+  buildWebexDesignerRoomJson,
+  webexDesignerJsonFileName,
+} from "webex-designer-export";
 import type { RoomAnalysis } from "@/lib/roomAnalysis";
 import { loadRoomAnalysisPayload } from "@/lib/resultStorage";
 
@@ -111,6 +115,19 @@ export default function ResultsClient() {
     URL.revokeObjectURL(url);
   }
 
+  function onDownloadWebexDesignerJson() {
+    if (!analysis) return;
+    const doc = buildWebexDesignerRoomJson(analysis);
+    const text = JSON.stringify(doc, null, 2);
+    const blob = new Blob([text], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = webexDesignerJsonFileName(doc.title);
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function onConvertEnvelopeFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -184,11 +201,20 @@ export default function ResultsClient() {
           >
             <h2 className="text-base font-semibold text-white">Downloads</h2>
             <p className="copy-readable mt-2">
-              Use the first button for{" "}
-              <span className="whitespace-nowrap text-[hsl(215_20%_88%)]">collabexperience.com</span>. The
-              third button is only the app&apos;s{" "}
+              <span className="whitespace-nowrap font-medium text-[hsl(215_20%_90%)]">
+                Collab / Video Room Calculator:
+              </span>{" "}
+              first button →{" "}
+              <span className="whitespace-nowrap text-[hsl(215_20%_88%)]">collabexperience.com</span>.
+              {" "}
+              <span className="whitespace-nowrap font-medium text-[hsl(215_20%_90%)]">
+                Webex Workspace Designer:
+              </span>{" "}
+              second button → drag the JSON onto the 3D view at{" "}
+              <span className="whitespace-nowrap text-[hsl(215_20%_88%)]">designer.webex.com</span>{" "}
+              (Custom rooms). The last button is only the app&apos;s{" "}
               <code className="rounded border border-[hsl(217_33%_28%)] bg-[hsl(217_33%_18%/0.9)] px-1 py-0.5 font-mono text-[11px] text-[hsl(215_20%_85%)]">{`{ ok, data }`}</code> JSON — not
-              for Video Room Calculator.
+              for those design tools.
             </p>
 
             <div className="mt-4 rounded-xl border border-[hsl(173_80%_40%/0.28)] bg-[hsl(173_80%_40%/0.09)] px-4 py-3 text-[15px] leading-relaxed text-[hsl(210_40%_96%)]">
@@ -222,9 +248,24 @@ export default function ResultsClient() {
               </button>
               <button
                 type="button"
+                onClick={onDownloadWebexDesignerJson}
+                disabled={!canExportVrc}
+                className="order-2 w-full rounded-xl border border-[hsl(277_90%_55%/0.35)] bg-[hsl(277_50%_22%/0.35)] px-4 py-3 text-[15px] font-semibold text-[hsl(210_40%_98%)] transition-colors hover:border-[hsl(277_90%_65%/0.45)] hover:bg-[hsl(277_90%_65%/0.12)] disabled:cursor-not-allowed disabled:opacity-45 sm:order-none sm:w-auto sm:px-4 sm:py-2.5"
+                title={
+                  canExportVrc
+                    ? "Workspace Designer Custom rooms — drag JSON onto the 3D canvas"
+                    : loading
+                      ? "Loading saved results…"
+                      : "Run an analysis first, or convert a saved JSON file below"
+                }
+              >
+                Download for Webex Workspace Designer (.json)
+              </button>
+              <button
+                type="button"
                 onClick={onCopyLink}
                 disabled={loading || !pretty}
-                className="order-2 w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-3 text-[15px] font-semibold text-[hsl(210_40%_96%)] transition-colors hover:border-[hsl(217_33%_35%)] hover:bg-[hsl(217_33%_18%/0.95)] disabled:cursor-not-allowed disabled:opacity-45 sm:order-none sm:w-auto sm:px-4 sm:py-2.5"
+                className="order-3 w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-3 text-[15px] font-semibold text-[hsl(210_40%_96%)] transition-colors hover:border-[hsl(217_33%_35%)] hover:bg-[hsl(217_33%_18%/0.95)] disabled:cursor-not-allowed disabled:opacity-45 sm:order-none sm:w-auto sm:px-4 sm:py-2.5"
               >
                 {copied ? "Copied" : "Copy results"}
               </button>
@@ -232,7 +273,7 @@ export default function ResultsClient() {
                 type="button"
                 onClick={onDownloadJson}
                 disabled={loading || !pretty}
-                className="order-3 w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-3 text-[15px] font-semibold text-[hsl(210_40%_96%)] transition-colors hover:border-[hsl(217_33%_35%)] hover:bg-[hsl(217_33%_18%/0.95)] disabled:cursor-not-allowed disabled:opacity-45 sm:order-none sm:w-auto sm:px-4 sm:py-2.5"
+                className="order-4 w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-3 text-[15px] font-semibold text-[hsl(210_40%_96%)] transition-colors hover:border-[hsl(217_33%_35%)] hover:bg-[hsl(217_33%_18%/0.95)] disabled:cursor-not-allowed disabled:opacity-45 sm:order-none sm:w-auto sm:px-4 sm:py-2.5"
                 title="App export only — not for Video Room Calculator"
               >
                 Download full analysis (room-ai).json
