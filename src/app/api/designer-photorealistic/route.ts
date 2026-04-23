@@ -89,14 +89,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: msg }, { status: 400 });
   }
 
+  // Only send fields accepted by `POST /v1/images/edits`. Extra fields like
+  // `quality` / `size` / `background` can return "Unknown parameter" depending on
+  // API version and model — keep the request minimal.
   const fd = new FormData();
   fd.append("model", model);
   fd.append("prompt", DESIGNER_PHOTOREALISTIC_PROMPT);
   fd.append("n", "1");
   fd.append("response_format", "b64_json");
-  fd.append("quality", "high");
-  fd.append("size", "1536x1024");
-  fd.append("background", "opaque");
   fd.append(
     "image[]",
     new Blob([new Uint8Array(pngBuffer)], { type: "image/png" }),
