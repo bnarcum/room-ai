@@ -741,7 +741,7 @@ export default function ResultsClient() {
                     </div>
                   </div>
                 </div>
-              ) : null}
+              ) : null
           ) : null}
         </div>
       </main>
