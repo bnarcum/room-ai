@@ -1,79 +1,36 @@
 import { NextResponse } from "next/server";
-import { generateText } from "ai";
-import {
-  createAnthropic,
-  type AnthropicLanguageModelOptions,
-} from "@ai-sdk/anthropic";
 import {
   buildWebexStyleRubric,
   roomAnalysisSchema,
   type RoomAnalysis,
 } from "@/lib/roomAnalysis";
+import {
+  anthropicCredentialFromEnv,
+  anthropicVisionMessages,
+  type AnthropicCredential,
+} from "@/lib/anthropicMessages";
 import { coerceRoomAnalysisPayload } from "@/lib/coerceRoomAnalysis";
 import { extractBalancedJsonObject } from "@/lib/extractModelJson";
 import { prepareImageForVision } from "@/lib/imageMime";
-import { combinedAssistantText } from "@/lib/modelResponseText";
-
-import type { LanguageModel } from "ai";
-
-/** Avoid adaptive/extended thinking consuming the whole output budget with no JSON in `text`. */
-const anthropicVisionProviderOptions = {
-  anthropic: {
-    thinking: { type: "disabled" as const },
-    sendReasoning: false,
-  } satisfies AnthropicLanguageModelOptions,
-};
 
 export const runtime = "nodejs";
 
-/** Vision + structured output can exceed the default 10s on Vercel; raise where your plan allows. */
+/** Vision + JSON can exceed default function timeout on cold starts. */
 export const maxDuration = 120;
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 
-/** Backoff between retries when the provider returns overload / rate-limit style errors. */
 const RETRY_WAIT_MS = [2000, 5000, 10000];
-/** Lighter retries when failing over to the next provider (stay within serverless time limits). */
 const FAILOVER_RETRY_MS = [2500];
-
-/** Retired `-latest` / old Sonnet aliases still show up in Vercel env and break at runtime. */
-
-function trimmedEnv(key: string): string | undefined {
-  const v = process.env[key];
-  if (typeof v !== "string") return undefined;
-  const t = v.trim();
-  return t.length > 0 ? t : undefined;
-}
-
-/**
- * Explicit credentials so we accept common alternate names and Bearer auth.
- * The default `anthropic()` client only reads ANTHROPIC_API_KEY automatically.
- */
-function anthropicProviderFromEnv() {
-  const authToken = trimmedEnv("ANTHROPIC_AUTH_TOKEN");
-  if (authToken) {
-    return createAnthropic({ authToken });
-  }
-  const apiKey =
-    trimmedEnv("ANTHROPIC_API_KEY") ??
-    trimmedEnv("ANTHROPIC_KEY") ??
-    trimmedEnv("CLAUDE_API_KEY");
-  if (apiKey) {
-    return createAnthropic({ apiKey });
-  }
-  return null;
-}
 
 function resolveAnthropicModelId(explicit: string | undefined): string {
   const fallback = "claude-sonnet-4-6";
   if (!explicit?.trim()) return fallback;
   const id = explicit.trim();
-  // Common dead value seen in dashboards; Anthropic rejects the call.
   if (id === "claude-3-5-sonnet-latest") return fallback;
   return id;
 }
 
-/** Dated snapshot IDs are most reliable across API versions. */
 function resolveFallbackModelId(explicit: string | undefined): string {
   const fallback = "claude-haiku-4-5-20251001";
   if (!explicit?.trim()) return fallback;
@@ -82,65 +39,30 @@ function resolveFallbackModelId(explicit: string | undefined): string {
   return id;
 }
 
+/** Unique model ids: primary then optional fallback. */
+function buildModelIdChain(): string[] {
+  const primary = resolveAnthropicModelId(process.env.ANTHROPIC_MODEL);
+  const fb = resolveFallbackModelId(process.env.ANTHROPIC_FALLBACK_MODEL);
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const id of [primary, fb]) {
+    if (!seen.has(id)) {
+      seen.add(id);
+      out.push(id);
+    }
+  }
+  return out;
+}
+
 function isAuthLikeError(message: string): boolean {
   const m = message.toLowerCase();
   return (
     m.includes("401") ||
     m.includes("403") ||
     m.includes("invalid api key") ||
-    m.includes("x-api-key") ||
     m.includes("authentication") ||
     m.includes("permission denied")
   );
-}
-
-type VisionStep = {
-  modelId: string;
-  model: LanguageModel;
-};
-
-/** Primary Claude model, then optional Haiku fallback if Anthropic is overloaded. */
-function buildVisionChain(): VisionStep[] {
-  const chain: VisionStep[] = [];
-  const dedupe = new Set<string>();
-
-  function add(step: VisionStep) {
-    if (dedupe.has(step.modelId)) return;
-    dedupe.add(step.modelId);
-    chain.push(step);
-  }
-
-  const anthropicSdk = anthropicProviderFromEnv();
-  if (!anthropicSdk) {
-    return chain;
-  }
-
-  const primary = resolveAnthropicModelId(process.env.ANTHROPIC_MODEL);
-  add({
-    modelId: primary,
-    model: anthropicSdk(primary),
-  });
-  const fb = resolveFallbackModelId(process.env.ANTHROPIC_FALLBACK_MODEL);
-  if (fb !== primary) {
-    add({ modelId: fb, model: anthropicSdk(fb) });
-  }
-
-  return chain;
-}
-
-function asString(value: FormDataEntryValue | null): string | null {
-  if (typeof value === "string") return value;
-  return null;
-}
-
-function blobLooksLikeImage(blob: Blob): boolean {
-  const t = (blob.type ?? "").trim().toLowerCase();
-  if (t.startsWith("image/") || t === "application/octet-stream") return true;
-  if (typeof File !== "undefined" && blob instanceof File) {
-    const name = blob.name?.toLowerCase() ?? "";
-    if (/\.(jpe?g|png|gif|webp)$/i.test(name)) return true;
-  }
-  return false;
 }
 
 function isTransientProviderError(message: string): boolean {
@@ -168,15 +90,40 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function asString(value: FormDataEntryValue | null): string | null {
+  if (typeof value === "string") return value;
+  return null;
+}
+
+function blobLooksLikeImage(blob: Blob): boolean {
+  const t = (blob.type ?? "").trim().toLowerCase();
+  if (t.startsWith("image/") || t === "application/octet-stream") return true;
+  if (typeof File !== "undefined" && blob instanceof File) {
+    const name = blob.name?.toLowerCase() ?? "";
+    if (/\.(jpe?g|png|gif|webp)$/i.test(name)) return true;
+  }
+  return false;
+}
+
 export async function POST(request: Request) {
-  const visionChain = buildVisionChain();
-  if (visionChain.length === 0) {
+  const credentials = anthropicCredentialFromEnv();
+  if (!credentials) {
     return NextResponse.json(
       {
         ok: false,
         error:
           "Missing Anthropic credentials at runtime. In Vercel open Settings → Environment Variables: add ANTHROPIC_API_KEY (your sk-ant-… key), enable it for Production (not only Preview), Save, then Redeploy the latest deployment. Alternate names ANTHROPIC_KEY or CLAUDE_API_KEY are supported.",
       },
+      { status: 500 }
+    );
+  }
+
+  const anthropicAuth: AnthropicCredential = credentials;
+
+  const modelChain = buildModelIdChain();
+  if (modelChain.length === 0) {
+    return NextResponse.json(
+      { ok: false, error: "No models configured." },
       { status: 500 }
     );
   }
@@ -192,7 +139,6 @@ export async function POST(request: Request) {
   }
 
   const photo = form.get("photo");
-  // `File` in some runtimes is a `Blob` only; both support type, size, arrayBuffer.
   if (!(photo instanceof Blob)) {
     return NextResponse.json(
       { ok: false, error: "Missing photo file upload." },
@@ -238,7 +184,7 @@ export async function POST(request: Request) {
   }
 
   const mediaType = prepared.mediaType;
-  const imageDataUrl = `data:${mediaType};base64,${prepared.buffer.toString("base64")}`;
+  const imageBase64 = prepared.buffer.toString("base64");
 
   const rubric = buildWebexStyleRubric();
   const jsonShape = [
@@ -288,40 +234,34 @@ export async function POST(request: Request) {
     .filter(Boolean)
     .join("\n");
 
-  const messages = [
-    {
-      role: "user" as const,
-      content: [
-        { type: "text" as const, text: userText },
-        /** Data URLs match Anthropic examples and avoid Buffer serialization edge cases in bundlers. */
-        { type: "image" as const, image: imageDataUrl },
-      ],
-    },
-  ];
+  async function callVision(modelId: string): Promise<string> {
+    return anthropicVisionMessages({
+      credential: anthropicAuth,
+      model: modelId,
+      system,
+      userText,
+      mediaType,
+      imageBase64,
+      maxTokens: 16384,
+      temperature: 0.25,
+    });
+  }
 
-  async function runModel(
-    model: LanguageModel,
-    waitPlan: readonly number[],
-  ): Promise<{ text: string }> {
+  async function callWithBackoff(
+    modelId: string,
+    waits: readonly number[],
+  ): Promise<string> {
     let lastErr: unknown;
-    const maxAttempts = 1 + waitPlan.length;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    for (let attempt = 0; attempt <= waits.length; attempt++) {
       try {
-        return await generateText({
-          model,
-          system,
-          messages,
-          temperature: 0.25,
-          maxOutputTokens: 16384,
-          providerOptions: anthropicVisionProviderOptions,
-        });
-      } catch (err) {
-        lastErr = err;
-        const msg = err instanceof Error ? err.message : String(err);
-        const canRetry =
-          isTransientProviderError(msg) && attempt < maxAttempts - 1;
-        if (!canRetry) throw err;
-        await sleep(waitPlan[attempt] ?? 2000);
+        return await callVision(modelId);
+      } catch (e) {
+        lastErr = e;
+        const msg = e instanceof Error ? e.message : String(e);
+        const willRetry =
+          attempt < waits.length && isTransientProviderError(msg);
+        if (!willRetry) throw e;
+        await sleep(waits[attempt] ?? 2000);
       }
     }
     throw lastErr;
@@ -329,22 +269,21 @@ export async function POST(request: Request) {
 
   try {
     const errors: string[] = [];
-    let result: { text: string } | null = null;
-    let successStep: VisionStep | null = null;
+    let assistantOut = "";
+    let successModelId = "";
 
-    for (let i = 0; i < visionChain.length; i++) {
-      const step = visionChain[i];
-      // First hop (usually primary Claude) gets full backoff; later hops failover faster.
+    for (let i = 0; i < modelChain.length; i++) {
+      const modelId = modelChain[i];
       const waits = i === 0 ? RETRY_WAIT_MS : FAILOVER_RETRY_MS;
       try {
-        result = await runModel(step.model, waits);
-        successStep = step;
+        assistantOut = await callWithBackoff(modelId, waits);
+        successModelId = modelId;
         break;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        errors.push(`${step.modelId}: ${msg}`);
+        errors.push(`${modelId}: ${msg}`);
         const canFailover =
-          i < visionChain.length - 1 && !isAuthLikeError(msg);
+          i < modelChain.length - 1 && !isAuthLikeError(msg);
         if (!canFailover) {
           throw new Error(
             errors.length > 1
@@ -355,7 +294,7 @@ export async function POST(request: Request) {
       }
     }
 
-    if (!result || !successStep) {
+    if (!successModelId) {
       throw new Error(
         errors.length > 0
           ? `Claude models could not complete the request:\n${errors.join("\n")}`
@@ -363,7 +302,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const assistantOut = combinedAssistantText(result);
     if (!assistantOut.trim()) {
       return NextResponse.json(
         {
@@ -414,7 +352,7 @@ export async function POST(request: Request) {
         ok: true,
         meta: {
           provider: "anthropic",
-          model: successStep.modelId,
+          model: successModelId,
         },
         data,
       },
@@ -426,4 +364,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }
-
