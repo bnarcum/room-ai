@@ -7,8 +7,10 @@ import type {
 const FT_TO_M = 0.3048;
 const TABLE_HEIGHT_M = 0.71;
 const TABLE_CENTER_Y = TABLE_HEIGHT_M / 2;
-/** Typical spacing from table edge to chair (~arm reach + gap) */
-const CHAIR_RING_PAD_M = 0.52;
+/** Distance from table apron to chair center (Designer avatars sit better when not overshot). */
+const CHAIR_RING_PAD_M = 0.38;
+/** Chair centers must stay inside the floor polygon by at least this margin (m). */
+const WALL_CLEARANCE_M = 0.42;
 const MAX_SEATS = 24;
 const MIN_SEATS = 4;
 
@@ -77,6 +79,60 @@ function tableDimensions(widthM: number, lengthM: number): {
   };
 }
 
+/**
+ * Shrinks table length/width so long-side chair centers stay inside the room for the
+ * given table yaw (0 = long axis along room +z, π/2 = long axis along room +x).
+ *
+ * Long-side seats sit at z = ±(hl+pad) (local) or x = ±(hl+pad) after π/2 rotation;
+ * along-edge variation in x is bounded by halfShort. Use conservative inset vs. xInset in
+ * {@link longSideChairPositions}.
+ */
+function clampTableDimensionsForLongSideSeating(params: {
+  wm: number;
+  lm: number;
+  tableWid: number;
+  tableLen: number;
+  rotateTableY: number;
+  pad: number;
+}): { tableWid: number; tableLen: number } {
+  const { wm, lm, rotateTableY, pad } = params;
+  const c = WALL_CLEARANCE_M;
+  /** Slightly smaller than max xInset so clamp stays valid for chair rows */
+  const edgeInset = 0.14;
+  const alignRoomZ = Math.abs(rotateTableY) < 0.01;
+
+  let hs = params.tableWid / 2;
+  let hl = params.tableLen / 2;
+
+  if (alignRoomZ) {
+    const maxHs = wm / 2 - c - edgeInset;
+    const maxHl = lm / 2 - c - pad;
+    hs = Math.min(hs, maxHs);
+    hl = Math.min(hl, maxHl);
+  } else {
+    const maxHl = wm / 2 - c - pad;
+    const maxHs = lm / 2 - c - edgeInset;
+    hl = Math.min(hl, maxHl);
+    hs = Math.min(hs, maxHs);
+  }
+
+  /** Table asset: length (long axis) ≥ width */
+  if (hl < hs) {
+    hs = hl;
+  }
+
+  let tableWid = round3(2 * Math.max(0.4, hs));
+  let tableLen = round3(2 * Math.max(0.4, hl));
+  if (tableLen < tableWid) {
+    tableLen = tableWid;
+  }
+
+  return {
+    tableWid: Math.max(tableWid, 1),
+    tableLen: Math.max(tableLen, Math.max(tableWid, 1)),
+  };
+}
+
 /** Screen diagonal inches — scale up slightly for large rooms */
 function screenSizeInches(widthM: number, lengthM: number): number {
   const span = Math.max(widthM, lengthM);
@@ -86,18 +142,17 @@ function screenSizeInches(widthM: number, lengthM: number): number {
 }
 
 /**
- * Seat positions around a rectangle (chair ring outside table half-extents).
- * Half-extents are in room space (x, z): table centered at origin in x, at tableCenterZ in z,
- * before table rotation — we apply rotation to seat offsets when rotateTableY ≠ 0.
+ * Boardroom-style seating: chairs only on the two **long** sides of the table (not on the
+ * short / head ends). That keeps seats away from narrow walls, avoids corner clipping, and
+ * pulls every chair up to the table edge instead of leaving one “stray” seat on an end wall.
  */
-function perimeterChairPositions(params: {
+function longSideChairPositions(params: {
   seatCount: number;
-  /** Table half-width (short side of physical table), meters */
   halfShort: number;
-  /** Table half-length (long side), meters */
   halfLong: number;
   tableCenterZ: number;
   rotateTableY: number;
+  pad: number;
 }): { cx: number; cz: number; yaw: number }[] {
   const {
     seatCount,
@@ -105,67 +160,47 @@ function perimeterChairPositions(params: {
     halfLong,
     tableCenterZ,
     rotateTableY,
+    pad,
   } = params;
 
-  const hw = halfShort + CHAIR_RING_PAD_M;
-  const hl = halfLong + CHAIR_RING_PAD_M;
+  const n = Math.max(seatCount, MIN_SEATS);
+  const bottomCount = Math.floor(n / 2);
+  const topCount = n - bottomCount;
 
-  /** Bottom / top run along x at z = ±hl; left / right run along z at x = ±hw */
-  const edgeBottom = 2 * hw;
-  const edgeRight = 2 * hl;
-  const edgeTop = 2 * hw;
-  const edgeLeft = 2 * hl;
-  const perimeter = edgeBottom + edgeRight + edgeTop + edgeLeft;
+  /** Long sides in table-local space: z = ±(halfLong + pad), x along table width */
+  const zEdge = halfLong + pad;
+  const zBottom = -zEdge;
+  const zTop = zEdge;
+
+  /** Slight inset so seats are not exactly on the short-axis corners */
+  const xInset = Math.min(0.18, Math.max(0.06, halfShort * 0.08));
+  const xMin = -halfShort + xInset;
+  const xMax = halfShort - xInset;
 
   const chairs: { cx: number; cz: number; yaw: number }[] = [];
-  const n = Math.max(seatCount, MIN_SEATS);
 
-  for (let i = 0; i < n; i++) {
-    const s = ((i + 0.5) / n) * perimeter;
-
-    let lx: number;
-    let lz: number;
-
-    if (s < edgeBottom) {
-      /** Bottom edge (-hl): x from -hw → +hw */
-      const t = s / edgeBottom;
-      lx = -hw + t * (2 * hw);
-      lz = -hl;
-    } else if (s < edgeBottom + edgeRight) {
-      /** Right edge (+hw): z from -hl → +hl */
-      const u = (s - edgeBottom) / edgeRight;
-      lx = hw;
-      lz = -hl + u * (2 * hl);
-    } else if (s < edgeBottom + edgeRight + edgeTop) {
-      /** Top (+hl): x from +hw → -hw */
-      const u = (s - edgeBottom - edgeRight) / edgeTop;
-      lx = hw - u * (2 * hw);
-      lz = hl;
-    } else {
-      /** Left (-hw): z from +hl → -hl */
-      const u = (s - edgeBottom - edgeRight - edgeTop) / edgeLeft;
-      lx = -hw;
-      lz = hl - u * (2 * hl);
+  function pushRow(count: number, lz: number) {
+    if (count <= 0) return;
+    for (let i = 0; i < count; i++) {
+      const t = (i + 0.5) / count;
+      const lx = xMin + t * (xMax - xMin);
+      let rx = lx;
+      let rz = lz;
+      if (Math.abs(rotateTableY) > 0.01) {
+        const c = Math.cos(rotateTableY);
+        const s = Math.sin(rotateTableY);
+        rx = lx * c + lz * s;
+        rz = -lx * s + lz * c;
+      }
+      const cx = round3(rx);
+      const cz = round3(rz + tableCenterZ);
+      const yaw = round3(Math.atan2(-cx, -(cz - tableCenterZ)));
+      chairs.push({ cx, cz, yaw });
     }
-
-    /** Rotate table-local (x,z) into room space (right-hand, +y up) */
-    let rx = lx;
-    let rz = lz;
-    if (Math.abs(rotateTableY) > 0.01) {
-      const c = Math.cos(rotateTableY);
-      const s = Math.sin(rotateTableY);
-      rx = lx * c + lz * s;
-      rz = -lx * s + lz * c;
-    }
-
-    const cx = round3(rx);
-    const cz = round3(rz + tableCenterZ);
-
-    /** Face table center (0, tableCenterZ) */
-    const yaw = round3(Math.atan2(-cx, -(cz - tableCenterZ)));
-
-    chairs.push({ cx, cz, yaw });
   }
+
+  pushRow(bottomCount, zBottom);
+  pushRow(topCount, zTop);
 
   return chairs;
 }
@@ -174,8 +209,8 @@ function perimeterChairPositions(params: {
  * Builds JSON for Cisco Webex **Workspace Designer** custom rooms (drag-and-drop on the 3D view).
  * Units are **meters** and rotations **radians** per Cisco documentation.
  *
- * Layout targets **large conference / boardroom** photos: elongated table, chairs around the
- * perimeter (not a circle), seat count from max(occupancy, floor-area heuristic).
+ * Layout targets **large conference / boardroom** photos: elongated table, chairs on the two
+ * long sides only (boardroom style), seat count from max(occupancy, floor-area heuristic).
  */
 export function buildWebexDesignerRoomJson(
   analysis: RoomAnalysisForWebex,
@@ -194,7 +229,17 @@ export function buildWebexDesignerRoomJson(
 
   const title = options?.title?.trim() || slugTitle(analysis.roomSummary.likelyUse);
 
-  const { tableWid, tableLen, rotateTableY, tableCenterZ } = tableDimensions(wm, lm);
+  let { tableWid, tableLen, rotateTableY, tableCenterZ } = tableDimensions(wm, lm);
+  const clamped = clampTableDimensionsForLongSideSeating({
+    wm,
+    lm,
+    tableWid,
+    tableLen,
+    rotateTableY,
+    pad: CHAIR_RING_PAD_M,
+  });
+  tableWid = clamped.tableWid;
+  tableLen = clamped.tableLen;
 
   /** Long / short half-extents in table local space (length = long axis of table object) */
   const halfLong = tableLen / 2;
@@ -252,12 +297,13 @@ export function buildWebexDesignerRoomJson(
     position: [0, 0.7, tableCenterZ],
   });
 
-  const chairPos = perimeterChairPositions({
+  const chairPos = longSideChairPositions({
     seatCount,
     halfShort,
     halfLong,
     tableCenterZ,
     rotateTableY,
+    pad: CHAIR_RING_PAD_M,
   });
 
   chairPos.forEach((p, i) => {

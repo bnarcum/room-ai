@@ -19,7 +19,7 @@ Import the downloaded file in **Workspace Designer** by dragging it onto the **3
 ## What gets generated
 
 - `roomShape.manual` rectangle using estimated **length / width / height** converted to **meters**.
-- Starter `customObjects`: rectangular **table**, **Room Bar Pro**, **75″ singleScreen**, **Table Mic Pro**, and **chairs** around the table (count derived from `roomSummary.occupancy`, clamped 2–8).
+- Starter `customObjects`: rectangular **table**, **Room Bar Pro**, **75″ singleScreen**, **Table Mic Pro**, and **chairs** along the **two long sides** of the table only (boardroom-style; count from `roomSummary.occupancy` vs. floor-area heuristic, clamped 4–24). Table size is capped so chair centers stay inside the room footprint.
 
 This is a starting layout for iteration in Designer, not a full equipment recommendation engine.
 
