@@ -13,10 +13,7 @@ type AnalyzeResponse =
 export default function Home() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
-  const [reference, setReference] = useState<
-    "none" | "credit-card" | "a4-letter-paper" | "known-ceiling-height"
-  >("none");
-  const [knownCeilingHeight, setKnownCeilingHeight] = useState<string>("");
+  const [ceilingHeight, setCeilingHeight] = useState("");
   const [unit, setUnit] = useState<"feet" | "meters">("feet");
   const [status, setStatus] = useState<
     "idle" | "uploading" | "error" | "done"
@@ -59,10 +56,14 @@ export default function Home() {
 
     const form = new FormData();
     form.set("photo", uploadFile);
-    form.set("reference", reference);
+    const ceiling = ceilingHeight.trim();
+    form.set(
+      "reference",
+      ceiling ? "known-ceiling-height" : "none",
+    );
     form.set("unit", unit);
-    if (reference === "known-ceiling-height") {
-      form.set("knownCeilingHeight", knownCeilingHeight.trim());
+    if (ceiling) {
+      form.set("knownCeilingHeight", ceiling);
     }
 
     let res: Response;
@@ -147,37 +148,21 @@ export default function Home() {
               />
 
               <div className="grid gap-2">
-                <label className="text-[15px] font-medium text-[hsl(210_40%_96%)]">
-                  Reference (optional)
-                </label>
-                <select
-                  value={reference}
-                  onChange={(e) =>
-                    setReference(
-                      e.target.value as
-                        | "none"
-                        | "credit-card"
-                        | "a4-letter-paper"
-                        | "known-ceiling-height"
-                    )
-                  }
-                  className="w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.92)] px-3 py-2.5 text-[15px] text-[hsl(210_40%_96%)] outline-none transition-[box-shadow] focus-visible:ring-2 focus-visible:ring-[hsl(277_90%_65%/0.45)]"
+                <label
+                  htmlFor="ceiling-height"
+                  className="text-[15px] font-medium text-[hsl(210_40%_96%)]"
                 >
-                  <option value="none">None (rough estimate)</option>
-                  <option value="credit-card">Credit card in photo</option>
-                  <option value="a4-letter-paper">A4/Letter paper in photo</option>
-                  <option value="known-ceiling-height">
-                    I know the ceiling height
-                  </option>
-                </select>
-                {reference === "known-ceiling-height" ? (
-                  <input
-                    value={knownCeilingHeight}
-                    onChange={(e) => setKnownCeilingHeight(e.target.value)}
-                    placeholder='Example: "9 ft" or "2.7 m"'
-                    className="w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.92)] px-3 py-2.5 text-[15px] text-[hsl(210_40%_96%)] placeholder:text-[hsl(215_20%_55%)] outline-none transition-[box-shadow] focus-visible:ring-2 focus-visible:ring-[hsl(277_90%_65%/0.45)]"
-                  />
-                ) : null}
+                  Ceiling height (optional)
+                </label>
+                <input
+                  id="ceiling-height"
+                  type="text"
+                  value={ceilingHeight}
+                  onChange={(e) => setCeilingHeight(e.target.value)}
+                  placeholder='e.g. 9 ft or 2.7 m — anchors room height if you know it'
+                  autoComplete="off"
+                  className="w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.92)] px-3 py-2.5 text-[15px] text-[hsl(210_40%_96%)] placeholder:text-[hsl(215_20%_55%)] outline-none transition-[box-shadow] focus-visible:ring-2 focus-visible:ring-[hsl(277_90%_65%/0.45)]"
+                />
               </div>
 
               <div className="grid gap-2">
@@ -230,8 +215,8 @@ export default function Home() {
 
               <p className="copy-muted">
                 Tip: For best results, capture at least two walls and the
-                ceiling/floor boundary. If you can include a reference object,
-                the estimate improves.
+                ceiling/floor boundary. Entering ceiling height above improves
+                scale when you know it.
               </p>
             </div>
 
