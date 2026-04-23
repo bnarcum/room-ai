@@ -416,29 +416,33 @@ export default function ResultsClient() {
                 </h2>
                 <p className="copy-readable max-w-[62ch]">
                   Upload your Workspace Designer snapshot (PNG/JPEG). We send it to
-                  OpenAI image generation with a fixed style prompt: photorealistic
-                  materials and lighting, dollhouse framing (no ceiling, two walls +
-                  floor), white void outside the room, and diverse business-casual
-                  people — without changing layout geometry.
+                  Google Gemini (preferred) or OpenAI image edits with a fixed style
+                  prompt: photorealistic materials and lighting, dollhouse framing (no
+                  ceiling, two walls + floor), white void outside the room, and
+                  diverse business-casual people — without changing layout geometry.
                 </p>
                 <p className="copy-muted max-w-[62ch] text-[13px]">
-                  Requires{" "}
+                  Set{" "}
                   <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.55)] px-1 py-0.5 font-mono text-[12px]">
-                    OPENAI_API_KEY
+                    GEMINI_API_KEY
                   </code>{" "}
-                  on the server (Vercel env or{" "}
+                  (AI Studio) on the server for Gemini. Optional:{" "}
                   <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.55)] px-1 py-0.5 font-mono text-[12px]">
-                    .env.local
-                  </code>
-                  ). Optional:{" "}
-                  <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.55)] px-1 py-0.5 font-mono text-[12px]">
-                    OPENAI_IMAGE_MODEL
+                    GEMINI_IMAGE_MODEL
                   </code>{" "}
                   (default{" "}
                   <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.55)] px-1 py-0.5 font-mono text-[12px]">
-                    dall-e-2
+                    gemini-3.1-flash-image-preview
                   </code>
-                  ).
+                  ). If Gemini is not set, add{" "}
+                  <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.55)] px-1 py-0.5 font-mono text-[12px]">
+                    OPENAI_API_KEY
+                  </code>{" "}
+                  for DALL·E-style edits (
+                  <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.55)] px-1 py-0.5 font-mono text-[12px]">
+                    dall-e-2
+                  </code>{" "}
+                  default).
                 </p>
               </div>
               <a
@@ -496,9 +500,18 @@ export default function ResultsClient() {
                     >
                       Download PNG
                     </button>
-                    {photorealMeta?.model ? (
+                    {photorealMeta?.model || photorealMeta?.provider ? (
                       <span className="self-center text-[13px] text-[hsl(215_20%_62%)]">
-                        Model: {photorealMeta.model}
+                        {[
+                          photorealMeta.provider === "google"
+                            ? "Google (Gemini)"
+                            : photorealMeta.provider === "openai"
+                              ? "OpenAI"
+                              : photorealMeta.provider,
+                          photorealMeta.model,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </span>
                     ) : null}
                   </div>
@@ -549,8 +562,8 @@ export default function ResultsClient() {
                   )}
                 </div>
                 <div className="copy-muted">
-                  The snapshot is sent to OpenAI only for this image edit. It is not
-                  stored on our servers.
+                  The snapshot is sent only to the configured image API (Gemini when
+                  its key is set). It is not stored on our servers.
                 </div>
               </div>
             </div>
