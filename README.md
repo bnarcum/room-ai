@@ -12,11 +12,18 @@ Built with Next.js (App Router) and the Vercel AI SDK.
 
 ### 1) Configure environment variables
 
-Create `.env.local` in the project root with your **Anthropic** API key (**Claude only**):
+Create `.env.local` in the project root:
 
 ```bash
+# Required for room photo analysis (/api/analyze)
 ANTHROPIC_API_KEY=your_key_here
+
+# Required for Workspace Designer → photorealistic render on /results (/api/designer-photorealistic)
+OPENAI_API_KEY=your_openai_key_here
 # Optional:
+# OPENAI_IMAGE_MODEL=gpt-image-2
+
+# Optional (analysis):
 # ANTHROPIC_MODEL=claude-sonnet-4-6
 # ANTHROPIC_FALLBACK_MODEL=claude-haiku-4-5   # used if primary is overloaded
 ```
@@ -35,7 +42,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 - Push this repo to GitHub
 - Import it in Vercel
-- Add **`ANTHROPIC_API_KEY`** (and optionally `ANTHROPIC_MODEL` / `ANTHROPIC_FALLBACK_MODEL`) under **Settings → Environment Variables**
+- Add **`ANTHROPIC_API_KEY`** and **`OPENAI_API_KEY`** (and optionally `ANTHROPIC_MODEL` / `ANTHROPIC_FALLBACK_MODEL` / `OPENAI_IMAGE_MODEL`) under **Settings → Environment Variables**
 - Ensure the variable is enabled for **Production** (not only Preview), click **Save**, then **Redeploy**
 - Deploy
 
@@ -44,7 +51,8 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - Dimension estimates from a **single photo** are inherently rough. Including a reference object (credit card, paper, or known ceiling height) improves the estimate.
 - v1 does not store photos server-side; it sends the image to the model for analysis and returns structured JSON.
 - **Anthropic**: if you set `ANTHROPIC_MODEL` on Vercel, use a current API model id (for example `claude-sonnet-4-6`). Old aliases such as `claude-3-5-sonnet-latest` often stop working when Anthropic retires them.
-- **Overload**: if the primary Claude model hits “high demand”, the API retries with backoff and can use **`ANTHROPIC_FALLBACK_MODEL`** (default Haiku). You can remove unused **`GOOGLE_*`** / **`OPENAI_*`** vars from Vercel; they are ignored.
+- **Overload**: if the primary Claude model hits “high demand”, the API retries with backoff and can use **`ANTHROPIC_FALLBACK_MODEL`** (default Haiku). Unused **`GOOGLE_*`** vars are ignored.
+- **Photorealistic Designer renders** use OpenAI **`images/edits`** (`gpt-image-2` by default). Omit **`OPENAI_API_KEY`** only if you do not need that feature on `/results`.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
