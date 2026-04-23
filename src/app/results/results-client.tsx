@@ -2,6 +2,7 @@
 
 import {
   type ChangeEvent,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -19,7 +20,8 @@ import {
   webexDesignerJsonFileName,
 } from "webex-designer-export";
 import type { RoomAnalysis } from "@/lib/roomAnalysis";
-import { loadRoomAnalysisPayload } from "@/lib/resultStorage";
+import { loadRoomAnalysisPayload, saveRoomAnalysisPayload } from "@/lib/resultStorage";
+import { preparePhotoForUpload } from "@/lib/prepareClientPhoto";
 
 function decodeDataParam(dataParam: string): unknown {
   const decoded = decodeURIComponent(dataParam);
@@ -35,6 +37,10 @@ type AnalyzeEnvelope =
   | { ok: true; meta?: { provider?: string; model?: string }; data: RoomAnalysis }
   | { ok: false; error: string };
 
+type AnalyzeResponse =
+  | { ok: true; meta?: { provider?: string; model?: string }; data: unknown }
+  | { ok: false; error: string };
+
 export default function ResultsClient() {
   const pathname = usePathname();
   const [copied, setCopied] = useState(false);
@@ -46,6 +52,101 @@ export default function ResultsClient() {
     text: string;
   } | null>(null);
   const convertInputRef = useRef<HTMLInputElement>(null);
+
+  const [designerFile, setDesignerFile] = useState<File | null>(null);
+  const [designerReference, setDesignerReference] = useState<
+    "none" | "credit-card" | "a4-letter-paper" | "known-ceiling-height"
+  >("none");
+  const [designerKnownCeilingHeight, setDesignerKnownCeilingHeight] =
+    useState("");
+  const [designerUnit, setDesignerUnit] = useState<"feet" | "meters">("feet");
+  const [designerStatus, setDesignerStatus] = useState<
+    "idle" | "uploading" | "error"
+  >("idle");
+  const [designerError, setDesignerError] = useState<string | null>(null);
+
+  const designerPreviewUrl = useMemo(() => {
+    if (!designerFile) return null;
+    return URL.createObjectURL(designerFile);
+  }, [designerFile]);
+
+  useEffect(() => {
+    return () => {
+      if (designerPreviewUrl) URL.revokeObjectURL(designerPreviewUrl);
+    };
+  }, [designerPreviewUrl]);
+
+  async function onAnalyzeDesignerRender() {
+    setDesignerError(null);
+    if (!designerFile) {
+      setDesignerStatus("error");
+      setDesignerError("Please choose an image exported from Workspace Designer.");
+      return;
+    }
+
+    setDesignerStatus("uploading");
+
+    let uploadFile: File;
+    try {
+      uploadFile = await preparePhotoForUpload(designerFile);
+    } catch (e) {
+      setDesignerStatus("error");
+      setDesignerError(
+        e instanceof Error
+          ? e.message
+          : "Could not prepare this image for upload.",
+      );
+      return;
+    }
+
+    const form = new FormData();
+    form.set("photo", uploadFile);
+    form.set("context", "workspace-designer-render");
+    form.set("reference", designerReference);
+    form.set("unit", designerUnit);
+    if (designerReference === "known-ceiling-height") {
+      form.set("knownCeilingHeight", designerKnownCeilingHeight.trim());
+    }
+
+    let res: Response;
+    try {
+      res = await fetch("/api/analyze", { method: "POST", body: form });
+    } catch {
+      setDesignerStatus("error");
+      setDesignerError("Network error while uploading. Please try again.");
+      return;
+    }
+
+    if (res.status === 413) {
+      setDesignerStatus("error");
+      setDesignerError(
+        "Image was too large. Try a smaller JPEG export from Workspace Designer, or analyze again after compression.",
+      );
+      return;
+    }
+
+    const json = (await res.json().catch(() => null)) as AnalyzeResponse | null;
+    if (!res.ok || !json || !json.ok) {
+      setDesignerStatus("error");
+      setDesignerError(
+        (json && "error" in json && json.error) ||
+          "The analysis failed. Try another image.",
+      );
+      return;
+    }
+
+    if (!saveRoomAnalysisPayload(json)) {
+      setDesignerStatus("error");
+      setDesignerError(
+        "Could not save results in this browser. Allow site storage or try another browser.",
+      );
+      return;
+    }
+
+    setDecoded(json as AnalyzeEnvelope);
+    setDesignerStatus("idle");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   useLayoutEffect(() => {
     try {
@@ -75,6 +176,23 @@ export default function ResultsClient() {
 
   const analysis = decoded && decoded.ok ? decoded.data : null;
   const meta = decoded && decoded.ok ? decoded.meta : null;
+
+  const observedSafe = useMemo(() => {
+    if (!analysis) {
+      return {
+        electronicsAndDevices: [] as string[],
+        plantsAndDecor: [] as string[],
+        otherNotable: [] as string[],
+      };
+    }
+    return (
+      analysis.observedItems ?? {
+        electronicsAndDevices: [],
+        plantsAndDecor: [],
+        otherNotable: [],
+      }
+    );
+  }, [analysis]);
   const loading = !ready;
   const canExportVrc = Boolean(ready && analysis);
 
@@ -280,6 +398,171 @@ export default function ResultsClient() {
               </button>
             </div>
           </section>
+
+          <section
+            className="mt-8 rounded-2xl border border-[hsl(277_90%_55%/0.22)] bg-[hsl(277_45%_14%/0.35)] p-6"
+            aria-label="Workspace Designer AI render analysis"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="grid gap-2">
+                <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[hsl(277_90%_72%/0.92)]">
+                  Workspace Designer
+                </p>
+                <h2 className="text-xl font-semibold tracking-tight text-white">
+                  AI render analysis
+                </h2>
+                <p className="copy-readable max-w-[62ch]">
+                  Upload the rendered image from{" "}
+                  <span className="whitespace-nowrap text-[hsl(215_20%_90%)]">
+                    Workspace Designer
+                  </span>{" "}
+                  (PNG/JPEG export) and run the same collaboration-space review here — no need to leave this app for that step. For background on AI render in Designer, see Cisco&apos;s article.
+                </p>
+              </div>
+              <a
+                href="https://designer.webex.com/#article/airender/2"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2 text-sm font-medium text-[hsl(215_20%_82%)] transition-colors hover:border-[hsl(277_90%_65%/0.45)] hover:bg-[hsl(277_90%_65%/0.1)] hover:text-[hsl(210_40%_98%)]"
+              >
+                Webex: AI render article ↗
+              </a>
+            </div>
+
+            <div className="mt-8 grid gap-8 md:grid-cols-2">
+              <div className="grid gap-4">
+                <label className="text-[15px] font-medium text-[hsl(210_40%_96%)]">
+                  Render image
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) =>
+                    setDesignerFile(e.target.files?.[0] ?? null)
+                  }
+                  className="block w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.92)] px-3 py-2.5 text-[15px] text-[hsl(210_40%_96%)] outline-none transition-[box-shadow] file:mr-4 file:rounded-lg file:border-0 file:bg-[hsl(277_90%_65%/0.14)] file:px-3 file:py-2 file:text-[15px] file:font-semibold file:text-[hsl(210_40%_96%)] hover:file:bg-[hsl(277_90%_65%/0.22)] focus-visible:ring-2 focus-visible:ring-[hsl(277_90%_65%/0.45)]"
+                />
+
+                <div className="grid gap-2">
+                  <label className="text-[15px] font-medium text-[hsl(210_40%_96%)]">
+                    Reference (optional)
+                  </label>
+                  <select
+                    value={designerReference}
+                    onChange={(e) =>
+                      setDesignerReference(
+                        e.target.value as
+                          | "none"
+                          | "credit-card"
+                          | "a4-letter-paper"
+                          | "known-ceiling-height",
+                      )
+                    }
+                    className="w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.92)] px-3 py-2.5 text-[15px] text-[hsl(210_40%_96%)] outline-none transition-[box-shadow] focus-visible:ring-2 focus-visible:ring-[hsl(277_90%_65%/0.45)]"
+                  >
+                    <option value="none">None (rough estimate)</option>
+                    <option value="credit-card">Credit card in render</option>
+                    <option value="a4-letter-paper">
+                      A4/Letter paper in render
+                    </option>
+                    <option value="known-ceiling-height">
+                      I know the ceiling height
+                    </option>
+                  </select>
+                  {designerReference === "known-ceiling-height" ? (
+                    <input
+                      value={designerKnownCeilingHeight}
+                      onChange={(e) =>
+                        setDesignerKnownCeilingHeight(e.target.value)
+                      }
+                      placeholder='Example: "9 ft" or "2.7 m"'
+                      className="w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.92)] px-3 py-2.5 text-[15px] text-[hsl(210_40%_96%)] placeholder:text-[hsl(215_20%_55%)] outline-none transition-[box-shadow] focus-visible:ring-2 focus-visible:ring-[hsl(277_90%_65%/0.45)]"
+                    />
+                  ) : null}
+                </div>
+
+                <div className="grid gap-2">
+                  <label className="text-[15px] font-medium text-[hsl(210_40%_96%)]">
+                    Preferred unit
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDesignerUnit("feet")}
+                      className={`rounded-xl border px-4 py-2 text-[15px] font-medium transition-colors ${
+                        designerUnit === "feet"
+                          ? "border-[hsl(277_90%_65%/0.55)] bg-[hsl(277_90%_65%/0.14)] text-[hsl(210_40%_98%)] shadow-[0_0_28px_-8px_hsl(277_90%_65%/0.42)]"
+                          : "border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] text-[hsl(215_20%_78%)] hover:border-[hsl(217_33%_35%)] hover:text-[hsl(210_40%_96%)]"
+                      }`}
+                    >
+                      Feet
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDesignerUnit("meters")}
+                      className={`rounded-xl border px-4 py-2 text-[15px] font-medium transition-colors ${
+                        designerUnit === "meters"
+                          ? "border-[hsl(277_90%_65%/0.55)] bg-[hsl(277_90%_65%/0.14)] text-[hsl(210_40%_98%)] shadow-[0_0_28px_-8px_hsl(277_90%_65%/0.42)]"
+                          : "border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] text-[hsl(215_20%_78%)] hover:border-[hsl(217_33%_35%)] hover:text-[hsl(210_40%_96%)]"
+                      }`}
+                    >
+                      Meters
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={onAnalyzeDesignerRender}
+                  disabled={designerStatus === "uploading"}
+                  className="btn-accent mt-1 inline-flex items-center justify-center rounded-xl px-5 py-3 text-[15px] font-semibold disabled:cursor-not-allowed"
+                >
+                  {designerStatus === "uploading"
+                    ? "Analyzing render…"
+                    : "Analyze render"}
+                </button>
+
+                {designerError ? (
+                  <p
+                    className="rounded-xl border border-red-500/25 bg-red-950/40 px-3 py-2 text-[15px] leading-snug text-red-200"
+                    role="alert"
+                  >
+                    {designerError}
+                  </p>
+                ) : null}
+
+                <p className="copy-muted">
+                  Uses a render-aware prompt (isometric/CGI exports): dimensions
+                  and recommendations assume intentional layout in the image.
+                </p>
+              </div>
+
+              <div className="grid gap-3">
+                <div className="text-[15px] font-medium text-[hsl(210_40%_96%)]">
+                  Preview
+                </div>
+                <div className="aspect-video w-full overflow-hidden rounded-2xl border border-[hsl(217_33%_25%)] bg-black/45 ring-1 ring-[hsl(217_33%_22%/0.6)]">
+                  {designerPreviewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={designerPreviewUrl}
+                      alt="Workspace Designer render preview"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center px-4 text-center text-[15px] leading-relaxed text-[hsl(215_20%_68%)]">
+                      Choose a render image to preview it here.
+                    </div>
+                  )}
+                </div>
+                <div className="copy-muted">
+                  Images are sent only to the model for this analysis (same as the
+                  home page).
+                </div>
+              </div>
+            </div>
+          </section>
+
           {loading ? (
             <p className="copy-muted mt-3">
               Loading saved results from this browser tab…
@@ -375,6 +658,48 @@ export default function ResultsClient() {
                           ))}
                         </ul>
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.45)] p-5">
+                    <div className="text-sm font-medium text-[hsl(210_40%_98%)]">
+                      Items visible in photo
+                    </div>
+                    <p className="copy-muted mt-1 text-[13px] leading-relaxed">
+                      Structured list of what the model noticed (aligned with
+                      suggestions where relevant).
+                    </p>
+                    <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                      {(
+                        [
+                          [
+                            "Electronics & devices",
+                            observedSafe.electronicsAndDevices,
+                          ],
+                          ["Plants & decor", observedSafe.plantsAndDecor],
+                          ["Other notable", observedSafe.otherNotable],
+                        ] as const
+                      ).map(([label, items]) => (
+                        <div
+                          key={label}
+                          className="rounded-xl border border-[hsl(217_33%_22%)] bg-[hsl(220_25%_8%/0.45)] p-4"
+                        >
+                          <div className="text-[13px] font-semibold text-[hsl(277_90%_72%)]">
+                            {label}
+                          </div>
+                          {items.length ? (
+                            <ul className="mt-2 list-disc pl-5 text-[14px] leading-relaxed text-[hsl(215_20%_78%)]">
+                              {items.map((it, i) => (
+                                <li key={i}>{it}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="mt-2 text-[14px] text-[hsl(215_20%_55%)]">
+                              None noted
+                            </p>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
 

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { preparePhotoForUpload } from "@/lib/prepareClientPhoto";
 import { saveRoomAnalysisPayload } from "@/lib/resultStorage";
 
 type AnalyzeResponse =
@@ -43,8 +44,21 @@ export default function Home() {
 
     setStatus("uploading");
 
+    let uploadFile: File;
+    try {
+      uploadFile = await preparePhotoForUpload(file);
+    } catch (e) {
+      setStatus("error");
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Could not prepare this photo for upload.",
+      );
+      return;
+    }
+
     const form = new FormData();
-    form.set("photo", file);
+    form.set("photo", uploadFile);
     form.set("reference", reference);
     form.set("unit", unit);
     if (reference === "known-ceiling-height") {
@@ -60,6 +74,14 @@ export default function Home() {
       return;
     }
 
+    if (res.status === 413) {
+      setStatus("error");
+      setError(
+        "Upload was too large for the server (common with full‑resolution phone photos). The app compresses large files automatically — try Analyze again; if this persists, export a smaller JPEG.",
+      );
+      return;
+    }
+
     const json = (await res.json().catch(() => null)) as AnalyzeResponse | null;
     if (!res.ok || !json || !json.ok) {
       setStatus("error");
@@ -71,12 +93,15 @@ export default function Home() {
     }
 
     setStatus("done");
-    // Prefer sessionStorage so large JSON + browser URL length limits do not break navigation.
-    if (saveRoomAnalysisPayload(json)) {
-      router.push("/results");
+    // Never put the full payload in the URL — it exceeds limits and breaks /results.
+    if (!saveRoomAnalysisPayload(json)) {
+      setStatus("error");
+      setError(
+        "Could not save results in this browser (storage blocked or full). Allow site storage or try another browser, then analyze again.",
+      );
       return;
     }
-    router.push(`/results?data=${encodeURIComponent(JSON.stringify(json))}`);
+    router.push("/results");
   }
 
   return (

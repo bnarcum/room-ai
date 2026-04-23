@@ -8,7 +8,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { anthropicCredentialFromEnv, anthropicVisionMessages } from "../src/lib/anthropicMessages";
-import { prepareImageForVision } from "../src/lib/imageMime";
+import { prepareImageForVisionAsync } from "../src/lib/imageMime";
 import { extractBalancedJsonObject } from "../src/lib/extractModelJson";
 import { coerceRoomAnalysisPayload } from "../src/lib/coerceRoomAnalysis";
 import { roomAnalysisSchema } from "../src/lib/roomAnalysis";
@@ -59,7 +59,7 @@ async function main() {
     buf = Buffer.from(TINY_PNG_B64, "base64");
   }
 
-  const prepared = prepareImageForVision(buf, declaredType);
+  const prepared = await prepareImageForVisionAsync(buf, declaredType);
   const jsonShape =
     'Reply with ONLY valid JSON matching: dimensions(unit feet|meters,length,width,height,confidence,reasoning), detectedReference(type,notes), roomSummary(likelyUse,occupancy,keyConstraints[]), recommendations(camera[],lighting[],...), quickChecklist[]';
 

@@ -1,3 +1,15 @@
+import sharp from "sharp";
+
+/**
+ * Known-good Webex-style render asset is ~1024px on the long edge (~0.7MP). Camera
+ * photos are multi‑MP with uneven lighting and noise; we downscale to that class of
+ * image and apply mild “marketing render” contrast + sharpen so vision sees clean
+ * edges and balanced tones like CGI stills (not photoreal noise / blown highlights).
+ */
+const RENDER_STYLE_LONG_EDGE_PX = 1024;
+/** Guard against decompression / huge pixel bombs (≈60MP). */
+const MAX_INPUT_PIXELS = 60_000_000;
+
 /** Strip UTF-8 BOM so PNG/JPEG magic bytes are visible. */
 export function stripUtf8Bom(buffer: Buffer): Buffer {
   if (
@@ -74,8 +86,8 @@ export type PreparedVisionImage = {
 };
 
 /**
- * Align declared MIME type with bytes for the vision API. Unsupported formats
- * (HEIC/AVIF from many phones) get a clear message — re-export as JPEG/PNG.
+ * Legacy sync path: align declared MIME with bytes. Prefer
+ * {@link prepareImageForVisionAsync} for uploads (phones, large pixels, HEIC).
  */
 export function prepareImageForVision(
   buffer: Buffer,
@@ -107,4 +119,85 @@ export function prepareImageForVision(
   throw new Error(
     "Unsupported image format. Please upload JPEG, PNG, GIF, or WebP.",
   );
+}
+
+/**
+ * Convert uploads into a **render-like** still for Anthropic vision (same idea as
+ * the known-good sample: modest resolution, even contrast, crisp edges).
+ */
+async function renderStyleJpeg(
+  raw: Buffer,
+  withToneMap: boolean,
+): Promise<Buffer> {
+  let pipeline = sharp(raw, {
+    animated: false,
+    limitInputPixels: MAX_INPUT_PIXELS,
+    sequentialRead: true,
+  })
+    .rotate()
+    .flatten({ background: { r: 255, g: 255, b: 255 } })
+    .resize(RENDER_STYLE_LONG_EDGE_PX, RENDER_STYLE_LONG_EDGE_PX, {
+      fit: "inside",
+      withoutEnlargement: true,
+      kernel: sharp.kernel.lanczos3,
+    })
+    .toColorspace("srgb");
+
+  if (withToneMap) {
+    pipeline = pipeline.normalize({ lower: 2, upper: 98 }).sharpen();
+  }
+
+  return pipeline
+    .jpeg({ quality: 88, mozjpeg: true, chromaSubsampling: "4:2:0" })
+    .toBuffer();
+}
+
+export async function prepareImageForVisionAsync(
+  buffer: Buffer,
+  declaredMime: string,
+): Promise<PreparedVisionImage> {
+  const raw = stripUtf8Bom(buffer);
+  if (raw.length < 24) {
+    throw new Error("Image file is too small or corrupted.");
+  }
+
+  try {
+    let out: Buffer;
+    try {
+      out = await renderStyleJpeg(raw, true);
+    } catch (toneErr) {
+      console.warn(
+        JSON.stringify({
+          scope: "prepareImageForVisionAsync",
+          action: "fallback_no_normalize",
+          message:
+            toneErr instanceof Error ? toneErr.message.slice(0, 200) : "unknown",
+        }),
+      );
+      out = await renderStyleJpeg(raw, false);
+    }
+
+    return { buffer: out, mediaType: "image/jpeg" };
+  } catch (e) {
+    const sniff = detectImageMimeType(raw);
+    const dm = declaredMime.trim().toLowerCase();
+    const isHeifFamily =
+      sniff === "image/heic" ||
+      sniff === "image/avif" ||
+      dm === "image/heic" ||
+      dm === "image/heif" ||
+      dm === "image/avif";
+
+    const inner = e instanceof Error ? e.message : String(e);
+
+    if (isHeifFamily) {
+      throw new Error(
+        `Could not decode this phone photo (${inner}). On iPhone: Settings → Camera → Formats → “Most Compatible”, then take or export a new JPEG and upload again.`,
+      );
+    }
+
+    throw new Error(
+      `Could not process this image (${inner}). Try a JPEG or PNG export, or a smaller photo.`,
+    );
+  }
 }

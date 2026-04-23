@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { NextResponse } from "next/server";
 import {
   buildWebexStyleRubric,
@@ -11,14 +13,20 @@ import {
 } from "@/lib/anthropicMessages";
 import { coerceRoomAnalysisPayload } from "@/lib/coerceRoomAnalysis";
 import { extractBalancedJsonObject } from "@/lib/extractModelJson";
-import { prepareImageForVision } from "@/lib/imageMime";
+import { prepareImageForVisionAsync } from "@/lib/imageMime";
+import { MAX_IMAGE_FILE_BYTES_VERCEL } from "@/lib/uploadLimits";
+import {
+  buildWorkspaceDesignerRenderSystem,
+  WORKSPACE_DESIGNER_RENDER_USER_FOOTER,
+} from "@/lib/workspaceDesignerRenderPrompt";
 
 export const runtime = "nodejs";
 
 /** Vision + JSON can exceed default function timeout on cold starts. */
 export const maxDuration = 120;
 
-const MAX_BYTES = 10 * 1024 * 1024; // 10MB
+/** Same cap as client (`uploadLimits.ts`) — whole POST must stay under ~4.5 MiB on Vercel. */
+const MAX_BYTES = MAX_IMAGE_FILE_BYTES_VERCEL;
 
 const RETRY_WAIT_MS = [2000, 5000, 10000];
 const FAILOVER_RETRY_MS = [2500];
@@ -90,6 +98,17 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Structured stderr for Vercel runtime logs (no secrets; redact long blobs). */
+function analyzeLog(payload: Record<string, unknown>): void {
+  console.error(
+    JSON.stringify({
+      scope: "room-ai/analyze",
+      ts: new Date().toISOString(),
+      ...payload,
+    }),
+  );
+}
+
 function asString(value: FormDataEntryValue | null): string | null {
   if (typeof value === "string") return value;
   return null;
@@ -100,21 +119,38 @@ function blobLooksLikeImage(blob: Blob): boolean {
   if (t.startsWith("image/") || t === "application/octet-stream") return true;
   if (typeof File !== "undefined" && blob instanceof File) {
     const name = blob.name?.toLowerCase() ?? "";
-    if (/\.(jpe?g|png|gif|webp)$/i.test(name)) return true;
+    if (/\.(jpe?g|png|gif|webp|heic|heif|avif)$/i.test(name)) return true;
   }
   return false;
 }
 
 export async function POST(request: Request) {
+  const rid =
+    request.headers.get("x-vercel-id") ??
+    request.headers.get("x-request-id") ??
+    randomUUID();
+
+  function withRid(
+    data: unknown,
+    init?: { status?: number; headers?: HeadersInit },
+  ) {
+    const r = NextResponse.json(data, {
+      status: init?.status ?? 200,
+      headers: init?.headers,
+    });
+    r.headers.set("x-analyze-request-id", rid);
+    return r;
+  }
+
   const credentials = anthropicCredentialFromEnv();
   if (!credentials) {
-    return NextResponse.json(
+    return withRid(
       {
         ok: false,
         error:
           "Missing Anthropic credentials at runtime. In Vercel open Settings → Environment Variables: add ANTHROPIC_API_KEY (your sk-ant-… key), enable it for Production (not only Preview), Save, then Redeploy the latest deployment. Alternate names ANTHROPIC_KEY or CLAUDE_API_KEY are supported.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -122,9 +158,9 @@ export async function POST(request: Request) {
 
   const modelChain = buildModelIdChain();
   if (modelChain.length === 0) {
-    return NextResponse.json(
+    return withRid(
       { ok: false, error: "No models configured." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -132,31 +168,35 @@ export async function POST(request: Request) {
   try {
     form = await request.formData();
   } catch {
-    return NextResponse.json(
+    return withRid(
       { ok: false, error: "Invalid form upload." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   const photo = form.get("photo");
   if (!(photo instanceof Blob)) {
-    return NextResponse.json(
+    return withRid(
       { ok: false, error: "Missing photo file upload." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   if (!blobLooksLikeImage(photo)) {
-    return NextResponse.json(
+    return withRid(
       { ok: false, error: "Unsupported file type. Please upload an image." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   if (photo.size > MAX_BYTES) {
-    return NextResponse.json(
-      { ok: false, error: "Image is too large. Please upload a smaller photo." },
-      { status: 400 }
+    return withRid(
+      {
+        ok: false,
+        error:
+          "Image exceeds the hosting upload limit (~4.5 MB per request). Export a smaller JPEG — the site also compresses large photos automatically before sending.",
+      },
+      { status: 400 },
     );
   }
 
@@ -170,17 +210,33 @@ export async function POST(request: Request) {
 
   const unit = (asString(form.get("unit")) ?? "feet") as "feet" | "meters";
   const knownCeilingHeight = asString(form.get("knownCeilingHeight")) ?? "";
+  /** `workspace-designer-render` = CGI / isometric export; default = real photo flow. */
+  const analysisContext = asString(form.get("context")) ?? "room-photo";
+  const isWorkspaceDesignerRender =
+    analysisContext === "workspace-designer-render";
 
   let prepared;
   try {
-    prepared = prepareImageForVision(
+    prepared = await prepareImageForVisionAsync(
       Buffer.from(await photo.arrayBuffer()),
       photo.type || "application/octet-stream",
     );
+    analyzeLog({
+      rid,
+      stage: "image_prepared",
+      context: analysisContext,
+      outBytes: prepared.buffer.length,
+      mediaType: prepared.mediaType,
+    });
   } catch (e) {
     const msg =
       e instanceof Error ? e.message : "Could not process this image.";
-    return NextResponse.json({ ok: false, error: msg }, { status: 400 });
+    analyzeLog({
+      rid,
+      stage: "image_prepare_failed",
+      message: msg.slice(0, 300),
+    });
+    return withRid({ ok: false, error: msg }, { status: 400 });
   }
 
   const mediaType = prepared.mediaType;
@@ -202,6 +258,11 @@ export async function POST(request: Request) {
     '    "occupancy": integer (0 if unknown),',
     '    "keyConstraints": string[]',
     "  },",
+    '  "observedItems": {',
+    '    "electronicsAndDevices": string[],',
+    '    "plantsAndDecor": string[],',
+    '    "otherNotable": string[]',
+    "  },",
     '  "recommendations": {',
     '    "camera": string[], "lighting": string[], "acoustics": string[], "display": string[],',
     '    "seating": string[], "cabling": string[], "network": string[], "power": string[]',
@@ -210,18 +271,21 @@ export async function POST(request: Request) {
     "}",
   ].join("\n");
 
-  const system = [
-    "You are a room-setup expert for collaboration spaces.",
-    "You will be given ONE photo of a room and optional reference context.",
-    "Photos may show full conference rooms, home offices, compact corners, standing desks, mixed furniture, or partial views — still produce best-effort dimensions and constraints.",
-    "Estimate room length/width/height as a rough estimate.",
-    "If the estimate is uncertain, lower confidence and explain why.",
-    "Then provide practical improvement suggestions aligned to a Webex-style room design rubric.",
-    "",
-    rubric,
-    "",
-    jsonShape,
-  ].join("\n");
+  const system = isWorkspaceDesignerRender
+    ? buildWorkspaceDesignerRenderSystem(rubric, jsonShape)
+    : [
+        "You are a room-setup expert for collaboration spaces.",
+        "You will be given ONE photo of a room and optional reference context.",
+        "Photos may show full conference rooms, home offices, compact corners, standing desks, mixed furniture, or partial views — still produce best-effort dimensions and constraints.",
+        "Photos may be real-world camera shots (glare, shadows, clutter, motion blur, odd angles) or clean marketing/render images — treat both the same: estimate anyway; never refuse analysis.",
+        "Estimate room length/width/height as a rough estimate.",
+        "If the estimate is uncertain, lower confidence and explain why.",
+        "Then provide practical improvement suggestions aligned to a Webex-style room design rubric.",
+        "",
+        rubric,
+        "",
+        jsonShape,
+      ].join("\n");
 
   const userText = [
     `Preferred unit: ${unit}.`,
@@ -229,7 +293,10 @@ export async function POST(request: Request) {
     reference === "known-ceiling-height" && knownCeilingHeight
       ? `Known ceiling height: ${knownCeilingHeight}. Use it to anchor the estimate.`
       : "No known ceiling height provided.",
-    "Task: Estimate length, width, height. Then produce categorized recommendations.",
+    isWorkspaceDesignerRender ? WORKSPACE_DESIGNER_RENDER_USER_FOOTER : null,
+    isWorkspaceDesignerRender
+      ? "Task: Evaluate this Workspace Designer render for hybrid-meeting readiness; estimate dimensions from depicted geometry and scale cues; fill observedItems with every visible collaboration-relevant object (displays, codecs/bars, cameras, seating, laptops, plants, decor). Name items consistently when you reference them in recommendations or quickChecklist."
+      : "Task: Estimate length, width, height. Fill observedItems with visible laptops, plants, decor, and other notable objects (use empty arrays only when nothing applies). When you cite those items in recommendations or quickChecklist, name them the same way here first.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -243,7 +310,7 @@ export async function POST(request: Request) {
       mediaType,
       imageBase64,
       maxTokens: 16384,
-      temperature: 0.25,
+      temperature: 0,
     });
   }
 
@@ -295,6 +362,11 @@ export async function POST(request: Request) {
     }
 
     if (!successModelId) {
+      analyzeLog({
+        rid,
+        stage: "all_models_failed",
+        errors: errors.map((e) => e.slice(0, 400)),
+      });
       throw new Error(
         errors.length > 0
           ? `Claude models could not complete the request:\n${errors.join("\n")}`
@@ -303,13 +375,14 @@ export async function POST(request: Request) {
     }
 
     if (!assistantOut.trim()) {
-      return NextResponse.json(
+      analyzeLog({ rid, stage: "empty_assistant_text", model: successModelId });
+      return withRid(
         {
           ok: false,
           error:
             "The model returned an empty answer. Please try again with the same photo.",
         },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
@@ -317,13 +390,20 @@ export async function POST(request: Request) {
     try {
       parsedJson = extractBalancedJsonObject(assistantOut);
     } catch {
-      return NextResponse.json(
+      analyzeLog({
+        rid,
+        stage: "json_extract_failed",
+        model: successModelId,
+        assistantChars: assistantOut.length,
+        assistantHead: assistantOut.slice(0, 120).replace(/\s+/g, " "),
+      });
+      return withRid(
         {
           ok: false,
           error:
             "The model response could not be parsed. Please try again in a moment.",
         },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
@@ -331,23 +411,29 @@ export async function POST(request: Request) {
     const parsed = roomAnalysisSchema.safeParse(coerced);
     if (!parsed.success) {
       const flat = parsed.error.flatten();
+      analyzeLog({
+        rid,
+        stage: "zod_validation_failed",
+        model: successModelId,
+        paths: parsed.error.issues.map((i) => i.path.join(".")),
+      });
       const detail =
         process.env.NODE_ENV === "development"
           ? JSON.stringify(flat.fieldErrors ?? flat.formErrors)
           : undefined;
-      return NextResponse.json(
+      return withRid(
         {
           ok: false,
           error:
             "Analysis completed but validation failed. Please try again, or use a smaller photo.",
           ...(detail ? { debug: detail } : {}),
         },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
     const data: RoomAnalysis = parsed.data;
-    return NextResponse.json(
+    return withRid(
       {
         ok: true,
         meta: {
@@ -356,11 +442,16 @@ export async function POST(request: Request) {
         },
         data,
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Unknown error during analysis.";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    analyzeLog({
+      rid,
+      stage: "route_exception",
+      message: message.slice(0, 500),
+    });
+    return withRid({ ok: false, error: message }, { status: 500 });
   }
 }

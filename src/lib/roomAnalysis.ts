@@ -100,6 +100,29 @@ export const roomAnalysisOutputSchema = z.object({
       ),
     keyConstraints: z.array(z.string()).describe("At least one constraint."),
   }),
+  observedItems: z
+    .object({
+      electronicsAndDevices: z
+        .array(z.string())
+        .describe(
+          "Tech visible in the photo: laptops, monitors, phones, cameras, speakers, codecs, etc. Empty array if none.",
+        ),
+      plantsAndDecor: z
+        .array(z.string())
+        .describe(
+          "Plants, artwork, rugs, curtains, lamps, accessories. Empty array if none.",
+        ),
+      otherNotable: z
+        .array(z.string())
+        .describe(
+          "Other notable objects: whiteboards, bookshelves, beverage stations, storage. Empty array if none.",
+        ),
+    })
+    .default({
+      electronicsAndDevices: [],
+      plantsAndDecor: [],
+      otherNotable: [],
+    }),
   recommendations: z.object({
     camera: z.array(z.string()),
     lighting: z.array(z.string()),
@@ -234,5 +257,6 @@ export function buildWebexStyleRubric(): string {
     "Focus on improvements that are low-cost and feasible for a typical room setup.",
     "Prefer specific recommendations (e.g. 'raise camera to eye level', 'add diffuse key light at 45°') over vague advice.",
     "When uncertain from a single photo, say what you can't see and propose a safe default.",
+    "Populate observedItems from what is actually visible (laptops on tables, wall-mounted displays, potted plants, decor). When you mention those same items in recommendations or checklist, keep wording consistent.",
   ].join("\n");
 }

@@ -36,6 +36,16 @@ function stringArray(v: unknown, pad: string): string[] {
   return out.length ? out : [pad];
 }
 
+/** Like stringArray but allows truly empty lists (no pad) for optional inventories. */
+function stringArrayOptional(v: unknown): string[] {
+  if (!Array.isArray(v)) {
+    return typeof v === "string" && v.trim() ? [v.trim()] : [];
+  }
+  return v
+    .map((x) => (typeof x === "string" ? x.trim() : String(x)))
+    .filter((s) => s.length > 0);
+}
+
 /**
  * Repair common model quirks (numeric strings, empty arrays, missing keys) before Zod.
  */
@@ -85,6 +95,17 @@ export function coerceRoomAnalysisPayload(raw: unknown): unknown {
     likelyUse: str(rs.likelyUse, "unknown"),
     occupancy: Math.max(0, Math.round(num(rs.occupancy, 0))),
     keyConstraints: stringArray(rs.keyConstraints, PAD_CONSTRAINT),
+  };
+
+  const obsIn = base.observedItems;
+  const obs =
+    obsIn && typeof obsIn === "object"
+      ? (obsIn as Record<string, unknown>)
+      : {};
+  base.observedItems = {
+    electronicsAndDevices: stringArrayOptional(obs.electronicsAndDevices),
+    plantsAndDecor: stringArrayOptional(obs.plantsAndDecor),
+    otherNotable: stringArrayOptional(obs.otherNotable),
   };
 
   const recIn = base.recommendations;
