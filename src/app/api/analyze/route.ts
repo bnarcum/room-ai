@@ -7,6 +7,7 @@ import {
   roomAnalysisSchema,
   type RoomAnalysis,
 } from "@/lib/roomAnalysis";
+import { prepareImageForVision } from "@/lib/imageMime";
 
 import type { LanguageModel } from "ai";
 
@@ -187,17 +188,27 @@ export async function POST(request: Request) {
   const unit = (asString(form.get("unit")) ?? "feet") as "feet" | "meters";
   const knownCeilingHeight = asString(form.get("knownCeilingHeight")) ?? "";
 
-  const arrayBuffer = await photo.arrayBuffer();
-  const base64 = Buffer.from(arrayBuffer).toString("base64");
-  const mediaType = photo.type && photo.type !== "application/octet-stream"
-    ? photo.type
-    : "image/jpeg";
+  let prepared;
+  try {
+    prepared = prepareImageForVision(
+      Buffer.from(await photo.arrayBuffer()),
+      photo.type || "application/octet-stream",
+    );
+  } catch (e) {
+    const msg =
+      e instanceof Error ? e.message : "Could not process this image.";
+    return NextResponse.json({ ok: false, error: msg }, { status: 400 });
+  }
+
+  const base64 = prepared.buffer.toString("base64");
+  const mediaType = prepared.mediaType;
   const dataUrl = `data:${mediaType};base64,${base64}`;
 
   const rubric = buildWebexStyleRubric();
   const system = [
     "You are a room-setup expert for collaboration spaces.",
     "You will be given ONE photo of a room and optional reference context.",
+    "Photos may show full conference rooms, home offices, compact corners, standing desks, mixed furniture, or partial views — still produce best-effort dimensions and constraints.",
     "Estimate room length/width/height as a rough estimate.",
     "If the estimate is uncertain, lower confidence and explain why.",
     "Then provide practical improvement suggestions aligned to a Webex-style room design rubric.",
@@ -302,8 +313,18 @@ export async function POST(request: Request) {
     // extra runtime validation (defensive in case provider returns partial)
     const parsed = roomAnalysisSchema.safeParse(output);
     if (!parsed.success) {
+      const flat = parsed.error.flatten();
+      const detail =
+        process.env.NODE_ENV === "development"
+          ? JSON.stringify(flat.fieldErrors ?? flat.formErrors)
+          : undefined;
       return NextResponse.json(
-        { ok: false, error: "Model returned invalid structured output." },
+        {
+          ok: false,
+          error:
+            "Model returned invalid structured output. Try again, or use a JPEG/PNG saved from your camera.",
+          ...(detail ? { debug: detail } : {}),
+        },
         { status: 502 }
       );
     }
