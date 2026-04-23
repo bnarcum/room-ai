@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
-import { createAnthropic } from "@ai-sdk/anthropic";
+import {
+  createAnthropic,
+  type AnthropicLanguageModelOptions,
+} from "@ai-sdk/anthropic";
 import {
   buildWebexStyleRubric,
   roomAnalysisSchema,
@@ -9,8 +12,17 @@ import {
 import { coerceRoomAnalysisPayload } from "@/lib/coerceRoomAnalysis";
 import { extractBalancedJsonObject } from "@/lib/extractModelJson";
 import { prepareImageForVision } from "@/lib/imageMime";
+import { combinedAssistantText } from "@/lib/modelResponseText";
 
 import type { LanguageModel } from "ai";
+
+/** Avoid adaptive/extended thinking consuming the whole output budget with no JSON in `text`. */
+const anthropicVisionProviderOptions = {
+  anthropic: {
+    thinking: { type: "disabled" as const },
+    sendReasoning: false,
+  } satisfies AnthropicLanguageModelOptions,
+};
 
 export const runtime = "nodejs";
 
@@ -61,6 +73,27 @@ function resolveAnthropicModelId(explicit: string | undefined): string {
   return id;
 }
 
+/** Dated snapshot IDs are most reliable across API versions. */
+function resolveFallbackModelId(explicit: string | undefined): string {
+  const fallback = "claude-haiku-4-5-20251001";
+  if (!explicit?.trim()) return fallback;
+  const id = explicit.trim();
+  if (id === "claude-3-5-sonnet-latest") return fallback;
+  return id;
+}
+
+function isAuthLikeError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("401") ||
+    m.includes("403") ||
+    m.includes("invalid api key") ||
+    m.includes("x-api-key") ||
+    m.includes("authentication") ||
+    m.includes("permission denied")
+  );
+}
+
 type VisionStep = {
   modelId: string;
   model: LanguageModel;
@@ -87,7 +120,7 @@ function buildVisionChain(): VisionStep[] {
     modelId: primary,
     model: anthropicSdk(primary),
   });
-  const fb = process.env.ANTHROPIC_FALLBACK_MODEL?.trim() || "claude-haiku-4-5";
+  const fb = resolveFallbackModelId(process.env.ANTHROPIC_FALLBACK_MODEL);
   if (fb !== primary) {
     add({ modelId: fb, model: anthropicSdk(fb) });
   }
@@ -205,6 +238,7 @@ export async function POST(request: Request) {
   }
 
   const mediaType = prepared.mediaType;
+  const imageDataUrl = `data:${mediaType};base64,${prepared.buffer.toString("base64")}`;
 
   const rubric = buildWebexStyleRubric();
   const jsonShape = [
@@ -259,11 +293,8 @@ export async function POST(request: Request) {
       role: "user" as const,
       content: [
         { type: "text" as const, text: userText },
-        {
-          type: "image" as const,
-          image: prepared.buffer,
-          mediaType,
-        },
+        /** Data URLs match Anthropic examples and avoid Buffer serialization edge cases in bundlers. */
+        { type: "image" as const, image: imageDataUrl },
       ],
     },
   ];
@@ -281,7 +312,8 @@ export async function POST(request: Request) {
           system,
           messages,
           temperature: 0.25,
-          maxOutputTokens: 8192,
+          maxOutputTokens: 16384,
+          providerOptions: anthropicVisionProviderOptions,
         });
       } catch (err) {
         lastErr = err;
@@ -312,7 +344,7 @@ export async function POST(request: Request) {
         const msg = err instanceof Error ? err.message : String(err);
         errors.push(`${step.modelId}: ${msg}`);
         const canFailover =
-          i < visionChain.length - 1 && isTransientProviderError(msg);
+          i < visionChain.length - 1 && !isAuthLikeError(msg);
         if (!canFailover) {
           throw new Error(
             errors.length > 1
@@ -331,9 +363,21 @@ export async function POST(request: Request) {
       );
     }
 
+    const assistantOut = combinedAssistantText(result);
+    if (!assistantOut.trim()) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "The model returned an empty answer. Please try again with the same photo.",
+        },
+        { status: 502 }
+      );
+    }
+
     let parsedJson: unknown;
     try {
-      parsedJson = extractBalancedJsonObject(result.text);
+      parsedJson = extractBalancedJsonObject(assistantOut);
     } catch {
       return NextResponse.json(
         {
