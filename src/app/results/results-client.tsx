@@ -436,7 +436,7 @@ export default function ResultsClient() {
                   </code>{" "}
                   (default{" "}
                   <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.55)] px-1 py-0.5 font-mono text-[12px]">
-                    gpt-image-2
+                    dall-e-2
                   </code>
                   ).
                 </p>

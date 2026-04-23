@@ -25,6 +25,22 @@ type OpenAiEditSuccess = {
   data?: Array<{ b64_json?: string; url?: string }>;
 };
 
+/** `images/edits` accepts different models depending on account; many keys only allow `dall-e-2`. */
+function usesDalle2Family(modelId: string): boolean {
+  const m = modelId.trim().toLowerCase();
+  return (
+    m === "dall-e-2" ||
+    m === "dalle2" ||
+    m.startsWith("dall-e-2")
+  );
+}
+
+/** GPT Image models use multipart `image[]`; DALL·E 2 historically uses singular `image`. */
+function usesGptImageMultipartArray(modelId: string): boolean {
+  const m = modelId.trim().toLowerCase();
+  return m.startsWith("gpt-image") || m.startsWith("chatgpt-image");
+}
+
 export async function POST(request: Request) {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
@@ -39,7 +55,7 @@ export async function POST(request: Request) {
   }
 
   const model =
-    process.env.OPENAI_IMAGE_MODEL?.trim() || "gpt-image-2";
+    process.env.OPENAI_IMAGE_MODEL?.trim() || "dall-e-2";
 
   let form: FormData;
   try {
@@ -80,9 +96,17 @@ export async function POST(request: Request) {
   let pngBuffer: Buffer;
   try {
     const raw = Buffer.from(await photo.arrayBuffer());
-    pngBuffer = await sharp(raw)
-      .png({ compressionLevel: 9 })
-      .toBuffer();
+    const base = sharp(raw);
+    // DALL·E 2 edits require a square PNG (typically 1024×1024).
+    pngBuffer = usesDalle2Family(model)
+      ? await base
+          .resize(1024, 1024, {
+            fit: "contain",
+            background: { r: 255, g: 255, b: 255, alpha: 1 },
+          })
+          .png({ compressionLevel: 9 })
+          .toBuffer()
+      : await base.png({ compressionLevel: 9 }).toBuffer();
   } catch (e) {
     const msg =
       e instanceof Error ? e.message : "Could not process this image.";
@@ -97,11 +121,14 @@ export async function POST(request: Request) {
   fd.append("prompt", DESIGNER_PHOTOREALISTIC_PROMPT);
   fd.append("n", "1");
   fd.append("response_format", "b64_json");
-  fd.append(
-    "image[]",
-    new Blob([new Uint8Array(pngBuffer)], { type: "image/png" }),
-    "input.png",
-  );
+  const pngBlob = new Blob([new Uint8Array(pngBuffer)], {
+    type: "image/png",
+  });
+  if (usesGptImageMultipartArray(model)) {
+    fd.append("image[]", pngBlob, "input.png");
+  } else {
+    fd.append("image", pngBlob, "input.png");
+  }
 
   let res: Response;
   try {

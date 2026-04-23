@@ -20,7 +20,7 @@ ANTHROPIC_API_KEY=your_key_here
 
 # Required for Workspace Designer → photorealistic render on /results (/api/designer-photorealistic)
 OPENAI_API_KEY=your_openai_key_here
-# Optional:
+# Optional — omit for dall-e-2 (default). Remove from Vercel if you previously set gpt-image-2 and the API rejected it.
 # OPENAI_IMAGE_MODEL=gpt-image-2
 
 # Optional (analysis):
@@ -52,7 +52,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - v1 does not store photos server-side; it sends the image to the model for analysis and returns structured JSON.
 - **Anthropic**: if you set `ANTHROPIC_MODEL` on Vercel, use a current API model id (for example `claude-sonnet-4-6`). Old aliases such as `claude-3-5-sonnet-latest` often stop working when Anthropic retires them.
 - **Overload**: if the primary Claude model hits “high demand”, the API retries with backoff and can use **`ANTHROPIC_FALLBACK_MODEL`** (default Haiku). Unused **`GOOGLE_*`** vars are ignored.
-- **Photorealistic Designer renders** use OpenAI **`images/edits`** (`gpt-image-2` by default). Omit **`OPENAI_API_KEY`** only if you do not need that feature on `/results`.
+- **Photorealistic Designer renders** use OpenAI **`images/edits`**. The default model is **`dall-e-2`** (widest API access). If your account supports **`gpt-image-2`** on this endpoint, set **`OPENAI_IMAGE_MODEL=gpt-image-2`**. Omit **`OPENAI_API_KEY`** only if you do not need that feature on `/results`.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
