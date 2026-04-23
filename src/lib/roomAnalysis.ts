@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { buildWebexDesignerResourcesRubricSection } from "@/lib/webexDesignerResources";
+
 export type LikelyUseCategory =
   | "home"
   | "small-office"
@@ -258,5 +260,7 @@ export function buildWebexStyleRubric(): string {
     "Prefer specific recommendations (e.g. 'raise camera to eye level', 'add diffuse key light at 45°') over vague advice.",
     "When uncertain from a single photo, say what you can't see and propose a safe default.",
     "Populate observedItems from what is actually visible (laptops on tables, wall-mounted displays, potted plants, decor). When you mention those same items in recommendations or checklist, keep wording consistent.",
+    "",
+    buildWebexDesignerResourcesRubricSection(),
   ].join("\n");
 }

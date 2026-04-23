@@ -421,29 +421,6 @@ export default function ResultsClient() {
                   ceiling, two walls + floor), white void outside the room, and
                   diverse business-casual people — without changing layout geometry.
                 </p>
-                <p className="copy-muted max-w-[62ch] text-[13px]">
-                  Set{" "}
-                  <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.55)] px-1 py-0.5 font-mono text-[12px]">
-                    GEMINI_API_KEY
-                  </code>{" "}
-                  (AI Studio) on the server for Gemini. Optional:{" "}
-                  <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.55)] px-1 py-0.5 font-mono text-[12px]">
-                    GEMINI_IMAGE_MODEL
-                  </code>{" "}
-                  (default{" "}
-                  <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.55)] px-1 py-0.5 font-mono text-[12px]">
-                    gemini-3.1-flash-image-preview
-                  </code>
-                  ). If Gemini is not set, add{" "}
-                  <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.55)] px-1 py-0.5 font-mono text-[12px]">
-                    OPENAI_API_KEY
-                  </code>{" "}
-                  for DALL·E-style edits (
-                  <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.55)] px-1 py-0.5 font-mono text-[12px]">
-                    dall-e-2
-                  </code>{" "}
-                  default).
-                </p>
               </div>
               <a
                 href="https://designer.webex.com/#article/airender/2"
