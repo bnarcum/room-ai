@@ -3,12 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { preparePhotoForUpload } from "@/lib/prepareClientPhoto";
-import { saveRoomAnalysisPayload } from "@/lib/resultStorage";
-
-type AnalyzeResponse =
-  | { ok: true; meta?: { provider?: string; model?: string }; data: unknown }
-  | { ok: false; error: string };
+import Link from "next/link";
+import { runClientRoomAnalysis } from "@/lib/runClientAnalysis";
 
 export default function Home() {
   const router = useRouter();
@@ -40,68 +36,17 @@ export default function Home() {
     }
 
     setStatus("uploading");
-
-    let uploadFile: File;
-    try {
-      uploadFile = await preparePhotoForUpload(file);
-    } catch (e) {
+    const result = await runClientRoomAnalysis({
+      file,
+      unit,
+      ceilingHeight,
+    });
+    if (!result.ok) {
       setStatus("error");
-      setError(
-        e instanceof Error
-          ? e.message
-          : "Could not prepare this photo for upload.",
-      );
+      setError(result.error);
       return;
     }
-
-    const form = new FormData();
-    form.set("photo", uploadFile);
-    const ceiling = ceilingHeight.trim();
-    form.set(
-      "reference",
-      ceiling ? "known-ceiling-height" : "none",
-    );
-    form.set("unit", unit);
-    if (ceiling) {
-      form.set("knownCeilingHeight", ceiling);
-    }
-
-    let res: Response;
-    try {
-      res = await fetch("/api/analyze", { method: "POST", body: form });
-    } catch {
-      setStatus("error");
-      setError("Network error while uploading. Please try again.");
-      return;
-    }
-
-    if (res.status === 413) {
-      setStatus("error");
-      setError(
-        "Upload was too large for the server (common with full‑resolution phone photos). The app compresses large files automatically — try Analyze again; if this persists, export a smaller JPEG.",
-      );
-      return;
-    }
-
-    const json = (await res.json().catch(() => null)) as AnalyzeResponse | null;
-    if (!res.ok || !json || !json.ok) {
-      setStatus("error");
-      setError(
-        (json && "error" in json && json.error) ||
-          "The analysis failed. Please try a different photo."
-      );
-      return;
-    }
-
     setStatus("done");
-    // Never put the full payload in the URL — it exceeds limits and breaks /results.
-    if (!saveRoomAnalysisPayload(json)) {
-      setStatus("error");
-      setError(
-        "Could not save results in this browser (storage blocked or full). Allow site storage or try another browser, then analyze again.",
-      );
-      return;
-    }
     router.push("/results");
   }
 
@@ -132,6 +77,15 @@ export default function Home() {
               </code>
               ) and{" "}
               <span className="whitespace-nowrap">Webex Workspace Designer</span>.
+            </p>
+            <p className="mt-2 text-[14px] text-[hsl(215_20%_70%)]">
+              Prefer a walkthrough?{" "}
+              <Link
+                href="/wizard"
+                className="font-medium text-[hsl(277_90%_78%)] underline decoration-[hsl(277_90%_50%/0.4)] underline-offset-2 transition-colors hover:text-[hsl(210_40%_96%)] hover:decoration-[hsl(277_90%_65%/0.55)]"
+              >
+                Open the guided wizard
+              </Link>
             </p>
           </div>
 
