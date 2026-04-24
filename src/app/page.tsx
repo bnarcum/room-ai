@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import Link from "next/link";
+import { SiteBrandLink } from "@/components/SiteBrand";
 import { runClientRoomAnalysis } from "@/lib/runClientAnalysis";
 
 export default function Home() {
@@ -51,8 +52,11 @@ export default function Home() {
   }
 
   return (
-    <div className="app-backdrop flex min-h-full flex-1 flex-col items-center px-4 py-12 text-[hsl(210_40%_96%)]">
+    <div className="app-backdrop flex min-h-full flex-1 flex-col items-center px-4 py-8 text-[hsl(210_40%_96%)] sm:py-10">
       <main className="w-full max-w-3xl">
+        <div className="mb-6 w-full sm:mb-8">
+          <SiteBrandLink />
+        </div>
         <div className="surface-card rounded-3xl p-7">
           <div className="flex flex-col gap-2">
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[hsl(277_90%_72%/0.92)]">

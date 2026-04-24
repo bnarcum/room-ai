@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { SiteBrandLink } from "@/components/SiteBrand";
 import { runClientRoomAnalysis } from "@/lib/runClientAnalysis";
 
 const STEPS = [
@@ -49,13 +50,13 @@ export default function WizardClient() {
   }
 
   return (
-    <div className="app-backdrop flex min-h-full flex-1 flex-col items-center px-4 py-10 text-[hsl(210_40%_96%)]">
+    <div className="app-backdrop flex min-h-full flex-1 flex-col items-center px-4 py-8 text-[hsl(210_40%_96%)] sm:py-10">
       <main className="w-full max-w-2xl">
+        <div className="mb-6 w-full sm:mb-8">
+          <SiteBrandLink />
+        </div>
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[hsl(277_90%_72%/0.92)]">
-              SnapRoom
-            </p>
             <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
               Guided wizard
             </h1>

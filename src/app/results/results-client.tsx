@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SiteBrandLink } from "@/components/SiteBrand";
 import {
   buildVideoRoomCalculatorJson,
   vrcJsonFileName,
@@ -252,8 +253,11 @@ export default function ResultsClient() {
   }
 
   return (
-    <div className="app-backdrop flex min-h-full flex-1 flex-col items-center px-4 py-12 text-[hsl(210_40%_96%)]">
+    <div className="app-backdrop flex min-h-full flex-1 flex-col items-center px-4 py-8 text-[hsl(210_40%_96%)] sm:py-10">
       <main className="w-full max-w-3xl">
+        <div className="mb-6 w-full sm:mb-8">
+          <SiteBrandLink />
+        </div>
         <div className="surface-card rounded-3xl p-7">
           <div className="flex items-start justify-between gap-4">
             <div className="grid gap-2">
