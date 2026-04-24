@@ -12,7 +12,6 @@ const STEPS = [
 ] as const;
 
 export default function WizardClient() {
-  const router = useRouter();
   const [step, setStep] = useState(1);
   const [file, setFile] = useState<File | null>(null);
   const [ceilingHeight, setCeilingHeight] = useState("");
