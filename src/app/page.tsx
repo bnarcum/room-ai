@@ -54,14 +54,18 @@ export default function Home() {
   return (
     <div className="app-backdrop flex min-h-full flex-1 flex-col items-center px-4 py-8 text-[hsl(210_40%_96%)] sm:py-10">
       <main className="w-full max-w-3xl">
-        <div className="mb-6 w-full sm:mb-8">
-          <SiteBrandLink />
-        </div>
         <div className="surface-card rounded-3xl p-7">
-          <div className="flex flex-col gap-2">
-            <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[hsl(277_90%_72%/0.92)]">
+          <div className="flex items-start justify-between gap-4">
+            <p className="min-w-0 pt-0.5 text-[11px] font-medium uppercase tracking-[0.2em] text-[hsl(277_90%_72%/0.92)]">
               Collaboration spaces
             </p>
+            <SiteBrandLink
+              className="-mt-1 max-w-[min(100%,16rem)] sm:max-w-[20rem] md:max-w-[24rem] lg:max-w-[28rem]"
+              imageClassName="h-auto w-full"
+              sizes="(min-width: 1024px) 28rem, (min-width: 768px) 24rem, (min-width: 640px) 20rem, 16rem"
+            />
+          </div>
+          <div className="mt-5 flex flex-col gap-2 sm:mt-6">
             <h1 className="text-3xl font-semibold tracking-tight text-white">
               Room insights from a single photo
             </h1>
