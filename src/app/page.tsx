@@ -56,10 +56,10 @@ export default function Home() {
         <div className="surface-card rounded-3xl p-7">
           <div className="flex flex-col gap-2">
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[hsl(277_90%_72%/0.92)]">
-              Vision
+              Collaboration spaces
             </p>
             <h1 className="text-3xl font-semibold tracking-tight text-white">
-              Room Vision Analyzer
+              Room insights from a single photo
             </h1>
             <p className="copy-readable max-w-[52ch]">
               Upload a single photo of a room. You’ll get a rough estimate of

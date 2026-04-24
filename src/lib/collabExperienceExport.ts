@@ -10,7 +10,7 @@ import {
  */
 export const VIDEO_ROOM_CALC_FILE_VERSION = "v0.1.643" as const;
 
-/** Embedded Room AI payload; preserved as extra keys Video Room Calculator ignores but round-trips on re-save in many builds. */
+/** Embedded analysis payload; preserved as extra keys Video Room Calculator ignores but round-trips on re-save in many builds. */
 export const ROOM_AI_VRC_EMBED_VERSION = 1 as const;
 
 export type RoomAiVrcEmbed = {
@@ -229,7 +229,7 @@ export function buildVideoRoomCalculatorJson(
   const d = analysis.dimensions;
   const unit: "feet" | "meters" = d.unit === "meters" ? "meters" : "feet";
   const use = analysis.roomSummary.likelyUse.replace(/[/\\?%*:|"<>]/g, "-");
-  const name = `Room Vision — ${use}`.trim();
+  const name = `SnapRoom — ${use}`.trim();
 
   const roomAi: RoomAiVrcEmbed = {
     embedVersion: ROOM_AI_VRC_EMBED_VERSION,
@@ -264,7 +264,7 @@ export function buildVideoRoomCalculatorJson(
       ...defaultRoomCalculationFields(unit),
     },
     software: "",
-    authorVersion: "room-ai",
+    authorVersion: "snaproom",
     roomAi,
     items: buildQuickSetupItems({
       unit,

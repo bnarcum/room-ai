@@ -54,7 +54,7 @@ export default function WizardClient() {
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[hsl(277_90%_72%/0.92)]">
-              Vision
+              SnapRoom
             </p>
             <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
               Guided wizard

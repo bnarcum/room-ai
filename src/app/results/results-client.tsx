@@ -209,11 +209,11 @@ export default function ResultsClient() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "room-ai-analysis.json";
+    a.download = "snaproom-analysis.json";
     a.click();
     URL.revokeObjectURL(url);
     setExportTip(
-      "Saved room-ai JSON — archive or share this file. For Collab Experience, use Download for Collab Experience (.vrc.json) above.",
+      "Saved snaproom-analysis.json — archive or share this file. For Collab Experience, use Download for Collab Experience (.vrc.json) above.",
     );
   }
 
@@ -231,7 +231,7 @@ export default function ResultsClient() {
     a.click();
     URL.revokeObjectURL(url);
     setExportTip(
-      "Downloaded .vrc.json — import that file on collabexperience.com (Video Room Calculator). Not the same as room-ai-analysis.json.",
+      "Downloaded .vrc.json — import that file on collabexperience.com (Video Room Calculator). Not the same as snaproom-analysis.json.",
     );
   }
 
@@ -328,7 +328,7 @@ export default function ResultsClient() {
                     Archive or tooling
                   </strong>{" "}
                   → &quot;Download full analysis&quot; or &quot;Copy analysis
-                  JSON&quot; — same Room AI payload for your records; not a Collab or
+                  JSON&quot; — same SnapRoom payload for your records; not a Collab or
                   Webex import file.
                 </li>
               </ul>
@@ -354,9 +354,13 @@ export default function ResultsClient() {
             <div className="mt-4 rounded-xl border border-[hsl(173_80%_40%/0.28)] bg-[hsl(173_80%_40%/0.09)] px-4 py-3 text-[15px] leading-relaxed text-[hsl(210_40%_96%)]">
               <span className="font-semibold text-[hsl(173_85%_48%)]">Import tip:</span>{" "}
               <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.65)] px-1.5 py-0.5 font-mono text-[13px] text-[hsl(210_40%_96%)]">
-                room-ai-analysis.json
+                snaproom-analysis.json
               </code>{" "}
-              cannot be opened in Video Room Calculator — you need{" "}
+              (or older{" "}
+              <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.65)] px-1.5 py-0.5 font-mono text-[13px] text-[hsl(210_40%_96%)]">
+                room-ai-analysis.json
+              </code>
+              ) cannot be opened in Video Room Calculator — you need{" "}
               <code className="rounded border border-[hsl(217_33%_30%)] bg-[hsl(220_25%_8%/0.65)] px-1.5 py-0.5 font-mono text-[13px] text-[hsl(210_40%_96%)]">
                 .vrc.json
               </code>{" "}
@@ -410,7 +414,7 @@ export default function ResultsClient() {
                 className="order-4 w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-3 text-[15px] font-semibold text-[hsl(210_40%_96%)] transition-colors hover:border-[hsl(217_33%_35%)] hover:bg-[hsl(217_33%_18%/0.95)] disabled:cursor-not-allowed disabled:opacity-45 sm:order-none sm:w-auto sm:px-4 sm:py-2.5"
                 title="App export only — not for Video Room Calculator"
               >
-                Download full analysis (room-ai).json
+                Download full analysis (snaproom).json
               </button>
             </div>
 
@@ -524,8 +528,7 @@ export default function ResultsClient() {
 
                 <p className="copy-muted">
                   Room dimensions and Webex rubric analysis are still on the home
-                  page (&quot;Room Vision Analyzer&quot;). This block only produces
-                  a stylized image.
+                  page. This block only produces a stylized image.
                 </p>
               </div>
 
@@ -586,7 +589,7 @@ export default function ResultsClient() {
                 href="/"
                 className="font-semibold text-white underline decoration-[hsl(277_90%_65%/0.45)] underline-offset-2 hover:decoration-[hsl(277_90%_72%)]"
               >
-                Room Vision Analyzer
+                SnapRoom
               </Link>{" "}
               on a photo to populate this page.
             </div>

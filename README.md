@@ -1,4 +1,4 @@
-## Room Vision Analyzer
+## SnapRoom
 
 Public, anonymous web app that lets anyone upload a single room photo and get:
 

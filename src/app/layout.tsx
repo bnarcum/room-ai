@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+
+import { SiteHeader } from "@/components/SiteHeader";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,9 +15,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Room Vision Analyzer",
+  title: {
+    default: "SnapRoom",
+    template: "%s | SnapRoom",
+  },
   description:
-    "Upload a room photo to estimate dimensions and get collaboration room improvement suggestions.",
+    "Snap a room photo — get size estimates, collaboration tips, and exports for Collab Experience and Webex Workspace Designer.",
 };
 
 export default function RootLayout({
@@ -28,7 +33,10 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        <SiteHeader />
+        {children}
+      </body>
     </html>
   );
 }

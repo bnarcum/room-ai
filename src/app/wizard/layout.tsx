@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Guided wizard — Room Vision",
+  title: "Guided wizard",
   description:
     "Step-by-step room photo analysis with the same results as the classic form.",
 };

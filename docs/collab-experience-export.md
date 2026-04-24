@@ -1,6 +1,6 @@
 # Collab Experience export — user guide
 
-This document describes how Room AI connects to **[collabexperience.com](https://collabexperience.com)** (Video Room Calculator): which file to download, how to import it, and how it differs from the app’s plain analysis JSON.
+This document describes how **SnapRoom** connects to **[collabexperience.com](https://collabexperience.com)** (Video Room Calculator): which file to download, how to import it, and how it differs from the app’s plain analysis JSON.
 
 ---
 
@@ -10,16 +10,16 @@ This document describes how Room AI connects to **[collabexperience.com](https:/
 | Goal                                                                                    | Use this export                                  |
 | --------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | Open the room in **collabexperience.com** Video Room Calculator                         | `**Download for Collab Experience (.vrc.json)`** |
-| Archive the full Room AI payload (`ok` / `data`), share a link, or inspect raw analysis | `**Download full analysis (room-ai).json`**      |
+| Archive the full SnapRoom payload (`ok` / `data`), share a link, or inspect raw analysis | `**Download full analysis (snaproom).json`**     |
 
 
-**Do not** import `room-ai-analysis.json` into Video Room Calculator — that format is app-specific. Collab expects the native calculator save format (`.vrc.json`).
+**Do not** import `snaproom-analysis.json` (or the older `room-ai-analysis.json`) into Video Room Calculator — that format is app-specific. Collab expects the native calculator save format (`.vrc.json`).
 
 ---
 
 ## Standard workflow (after a new analysis)
 
-1. Run an analysis from the Room AI home flow (upload / camera as the app supports).
+1. Run an analysis from the SnapRoom home flow (upload / camera as the app supports).
 2. Open the **Results** page when the run finishes.
 3. Scroll to **Downloads**.
 4. Click `**Download for Collab Experience (.vrc.json)`**.
@@ -29,12 +29,12 @@ The downloaded filename is derived from the room name in the export (sanitized f
 
 ---
 
-## If you only have an old `room-ai-analysis.json`
+## If you only have a saved `snaproom-analysis.json` or older `room-ai-analysis.json`
 
 Earlier saves look like `{ "ok": true, "data": { ... } }`. Video Room Calculator cannot read that envelope.
 
-1. Open Room AI **Results** (same browser if possible), **or** use the Results page when you have no in-tab results.
-2. Use **Choose JSON file…** (convert) and pick your saved `room-ai-analysis.json`.
+1. Open **SnapRoom Results** (same browser if possible), **or** use the Results page when you have no in-tab results.
+2. Use **Choose JSON file…** (convert) and pick your saved `snaproom-analysis.json` or `room-ai-analysis.json`.
 3. The app downloads a `**.vrc.json`** — import **that** file on collabexperience.com, not the original JSON.
 
 ---
@@ -42,10 +42,10 @@ Earlier saves look like `{ "ok": true, "data": { ... } }`. Video Room Calculator
 ## What’s inside the `.vrc.json`
 
 - **Native Video Room Calculator fields**: room dimensions, units, workspace/layers, surfaces, `items` (devices, tables, displays, etc.), aligned with the calculator version string used by the exporter (see `VIDEO_ROOM_CALC_FILE_VERSION` in code).
-- `**roomAi`**: embedded copy of your Room AI analysis (versioned embed) so the file round-trips with context; the calculator UI may ignore extra keys depending on build.
+- `**roomAi`**: embedded copy of your SnapRoom analysis (versioned embed) so the file round-trips with context; the calculator UI may ignore extra keys depending on build.
 - **Starter layout**: Defaults include calculator-friendly room math fields (e.g. FOV/crops/zoom placeholders) plus a minimal **Quick Setup–style scene** (e.g. table, single display, Room Bar Pro) so the canvas is not empty after import.
 
-**Important:** Recommendation and narrative text from Room AI **does not render on the Collab canvas** — it lives in the JSON / your Results page. The canvas is for spatial layout in Video Room Calculator.
+**Important:** Recommendation and narrative text from SnapRoom **does not render on the Collab canvas** — it lives in the JSON / your Results page. The canvas is for spatial layout in Video Room Calculator.
 
 ---
 
@@ -55,7 +55,7 @@ Earlier saves look like `{ "ok": true, "data": { ... } }`. Video Room Calculator
 | Symptom                             | What to try                                                                                                                                 |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Downloads buttons stay disabled** | Complete an analysis first, or use **Choose JSON file…** to convert a saved envelope file to `.vrc.json`.                                   |
-| **Collab rejects the file**         | Confirm you imported `**.vrc.json`**, not `room-ai-analysis.json`. Re-export from Results or convert.                                       |
+| **Collab rejects the file**         | Confirm you imported `**.vrc.json`**, not `snaproom-analysis.json` / `room-ai-analysis.json`. Re-export from Results or convert.             |
 | **Canvas looks empty**              | Use a fresh export from this app (includes starter items). Older manual JSON may lack `items` / room fields the importer expects.           |
 | **Results page shows nothing**      | Results are loaded from the URL `data=` parameter or browser session storage for that tab; run a new analysis or open the share link again. |
 
@@ -76,14 +76,14 @@ Copy each block into a slide title + bullets.
 
 ### Slide 1 — Title
 
-- **Room AI → Collab Experience**
+- **SnapRoom → Collab Experience**
 - From photo analysis to Video Room Calculator on collabexperience.com
 
 ### Slide 2 — Why & what
 
 - Teams need **spatial layout** in Collab, not only a written report.
-- Room AI estimates dimensions and recommendations from a room photo.
-- **Two exports:** `**Download for Collab Experience (.vrc.json)`** opens in Collab; `**Download full analysis (room-ai).json`** is for archives / inspection — **do not** import that file into Video Room Calculator.
+- SnapRoom estimates dimensions and recommendations from a room photo.
+- **Two exports:** `**Download for Collab Experience (.vrc.json)`** opens in Collab; `**Download full analysis (snaproom).json`** is for archives / inspection — **do not** import that file into Video Room Calculator.
 
 ### Slide 3 — How to use it
 
@@ -94,10 +94,10 @@ Copy each block into a slide title + bullets.
 
 ### Slide 4 — Takeaways
 
-- **Rule:** Collab always gets `**.vrc.json`**, never `room-ai-analysis.json`.
+- **Rule:** Collab always gets `**.vrc.json`**, never `snaproom-analysis.json` / `room-ai-analysis.json`.
 - Wrong file type → import errors; no Results in tab → run analysis again or convert a saved JSON.
 - **Q&A**
 
 ---
 
-*Last updated to match Room AI Results “Downloads” behavior and `collabExperienceExport` implementation.*
+*Last updated to match SnapRoom Results “Downloads” behavior and `collabExperienceExport` implementation.*

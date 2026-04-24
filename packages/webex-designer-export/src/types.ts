@@ -1,5 +1,5 @@
 /**
- * Minimal Room Vision / room-ai analysis shape needed to build a Workspace Designer
+ * Minimal SnapRoom (room analysis) shape needed to build a Workspace Designer
  * custom room. Keeps this package free of zod/next dependencies.
  *
  * @see https://designer.webex.com/#/article/CustomRooms

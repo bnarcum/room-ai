@@ -1,6 +1,6 @@
 # webex-designer-export
 
-Pure TypeScript helper that turns **Room Vision** dimension analysis into **Cisco Webex Workspace Designer** [Custom rooms](https://designer.webex.com/#/article/CustomRooms) JSON.
+Pure TypeScript helper that turns **SnapRoom** dimension analysis into **Cisco Webex Workspace Designer** [Custom rooms](https://designer.webex.com/#/article/CustomRooms) JSON.
 
 ## Usage
 
@@ -25,4 +25,4 @@ This is a starting layout for iteration in Designer, not a full equipment recomm
 
 ## Relationship to `collabExperienceExport`
 
-The main **room-ai** app also builds **Video Room Calculator** `.vrc.json` for collabexperience.com. That format is unrelated to Webex JSON—this package targets **designer.webex.com** only.
+The main **SnapRoom** app also builds **Video Room Calculator** `.vrc.json` for collabexperience.com. That format is unrelated to Webex JSON—this package targets **designer.webex.com** only.

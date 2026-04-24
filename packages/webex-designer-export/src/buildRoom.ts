@@ -31,7 +31,7 @@ function toMeters(value: number, unit: "feet" | "meters"): number {
 
 function slugTitle(likelyUse: string): string {
   const t = likelyUse.replace(/[/\\?%*:|"<>]/g, "-").trim() || "unknown";
-  return `Room Vision — ${t}`;
+  return `SnapRoom — ${t}`;
 }
 
 /**
@@ -335,6 +335,6 @@ export function buildWebexDesignerRoomJson(
 }
 
 export function webexDesignerJsonFileName(title: string): string {
-  const base = title.replace(/[/\\?%*:|"<>]/g, "-").trim() || "Room-Vision";
+  const base = title.replace(/[/\\?%*:|"<>]/g, "-").trim() || "SnapRoom";
   return `${base}.webex-room.json`;
 }
