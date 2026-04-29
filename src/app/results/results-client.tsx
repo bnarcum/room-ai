@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SiteBrandLink } from "@/components/SiteBrand";
@@ -33,7 +39,7 @@ type AnalyzeEnvelope =
 export default function ResultsClient() {
   const pathname = usePathname();
   const [copiedJson, setCopiedJson] = useState(false);
-  const [exportTip, setExportTip] = useState<string | null>(null);
+  const [exportTip, setExportTip] = useState<ReactNode>(null);
   const [decoded, setDecoded] = useState<AnalyzeEnvelope | null>(null);
   /** False until we've read sessionStorage / URL on the client (avoid useSearchParams — it forces CSR bailout). */
   const [ready, setReady] = useState(false);
@@ -61,7 +67,7 @@ export default function ResultsClient() {
 
   useEffect(() => {
     if (!exportTip) return;
-    const id = window.setTimeout(() => setExportTip(null), 8000);
+    const id = window.setTimeout(() => setExportTip(null), 30_000);
     return () => window.clearTimeout(id);
   }, [exportTip]);
 
@@ -248,7 +254,18 @@ export default function ResultsClient() {
     a.click();
     URL.revokeObjectURL(url);
     setExportTip(
-      "Downloaded Webex room JSON — at designer.webex.com open Custom rooms and drag this file onto the 3D view.",
+      <>
+        Downloaded Webex room JSON — at{" "}
+        <a
+          href="https://designer.webex.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-[hsl(173_85%_58%)] underline decoration-[hsl(173_85%_48%/0.55)] underline-offset-2 transition-colors hover:text-[hsl(173_85%_68%)]"
+        >
+          designer.webex.com
+        </a>{" "}
+        open Custom rooms and drag this file onto the 3D view.
+      </>,
     );
   }
 
