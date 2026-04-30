@@ -65,12 +65,20 @@ export default function WizardClient() {
               Results view for exports.
             </p>
           </div>
-          <Link
-            href="/"
-            className="shrink-0 rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2 text-sm font-medium text-[hsl(215_20%_82%)] transition-colors hover:border-[hsl(277_90%_65%/0.45)] hover:bg-[hsl(277_90%_65%/0.1)] hover:text-[hsl(210_40%_98%)]"
-          >
-            Classic one-page form
-          </Link>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            <Link
+              href="/quick-estimate"
+              className="rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2 text-sm font-medium text-[hsl(215_20%_82%)] transition-colors hover:border-[hsl(277_90%_65%/0.45)] hover:bg-[hsl(277_90%_65%/0.1)] hover:text-[hsl(210_40%_98%)]"
+            >
+              Quick Estimate
+            </Link>
+            <Link
+              href="/"
+              className="rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2 text-sm font-medium text-[hsl(215_20%_82%)] transition-colors hover:border-[hsl(277_90%_65%/0.45)] hover:bg-[hsl(277_90%_65%/0.1)] hover:text-[hsl(210_40%_98%)]"
+            >
+              Classic one-page form
+            </Link>
+          </div>
         </div>
 
         <nav

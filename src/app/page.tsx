@@ -94,6 +94,13 @@ export default function Home() {
               >
                 Open the guided wizard
               </Link>
+              . Fast path to Workspace Designer:{" "}
+              <Link
+                href="/quick-estimate"
+                className="font-medium text-[hsl(277_90%_78%)] underline decoration-[hsl(277_90%_50%/0.4)] underline-offset-2 transition-colors hover:text-[hsl(210_40%_96%)] hover:decoration-[hsl(277_90%_65%/0.55)]"
+              >
+                Quick Estimate
+              </Link>
             </p>
           </div>
 
