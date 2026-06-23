@@ -87,7 +87,7 @@ export default function QuickEstimatePage() {
           />
         </div>
         <div className="surface-card rounded-3xl p-7">
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2" id="tour-quick">
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[hsl(277_90%_72%/0.92)]">
               Workspace Designer
             </p>

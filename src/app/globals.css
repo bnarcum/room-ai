@@ -140,3 +140,203 @@ body {
   border: 1px solid var(--meq-border);
   box-shadow: var(--shadow-card);
 }
+
+/* Demo tour — presenter mode for screen recordings */
+.demo-tour-fab {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 10050;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  border: 1px solid hsl(277 90% 65% / 0.45);
+  background: linear-gradient(
+    135deg,
+    hsl(277 90% 65% / 0.22),
+    hsl(173 80% 40% / 0.18)
+  );
+  color: hsl(210 40% 98%);
+  font-size: 1.125rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-glow-primary);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
+}
+
+.demo-tour-fab:hover {
+  transform: scale(1.06);
+  box-shadow:
+    var(--shadow-glow-primary),
+    var(--shadow-glow-accent);
+}
+
+.demo-tour-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10040;
+  background: hsl(222 47% 6% / 0.62);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.demo-tour-backdrop.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.demo-tour-spotlight {
+  position: fixed;
+  z-index: 10045;
+  border-radius: 1rem;
+  box-shadow:
+    0 0 0 9999px hsl(222 47% 6% / 0.62),
+    0 0 0 2px hsl(277 90% 72% / 0.85),
+    0 0 32px hsl(277 90% 65% / 0.35);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.demo-tour-spotlight.is-visible {
+  opacity: 1;
+}
+
+.demo-tour-popover {
+  position: fixed;
+  z-index: 10060;
+  width: min(340px, calc(100vw - 24px));
+  padding: 1rem 1.125rem 1.125rem;
+  border-radius: 1rem;
+  border: 1px solid hsl(217 33% 28%);
+  background: linear-gradient(
+    180deg,
+    hsl(217 33% 20%) 0%,
+    hsl(217 33% 14%) 100%
+  );
+  box-shadow:
+    var(--shadow-card),
+    0 12px 40px hsl(0 0% 0% / 0.45);
+  color: hsl(210 40% 96%);
+}
+
+.demo-tour-step-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: hsl(277 90% 72%);
+}
+
+.demo-tour-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.0625rem;
+  font-weight: 650;
+  line-height: 1.3;
+  color: hsl(210 40% 98%);
+}
+
+.demo-tour-body {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: hsl(215 20% 82%);
+}
+
+.demo-tour-tip {
+  margin: 0.75rem 0 0;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.625rem;
+  border: 1px solid hsl(173 80% 40% / 0.28);
+  background: hsl(173 80% 40% / 0.08);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: hsl(215 20% 78%);
+}
+
+.demo-tour-wait {
+  margin: 0.625rem 0 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: hsl(173 85% 58%);
+}
+
+.demo-tour-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.demo-tour-btn {
+  border-radius: 0.625rem;
+  border: 1px solid hsl(217 33% 28%);
+  background: hsl(217 33% 14% / 0.9);
+  padding: 0.45rem 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: hsl(210 40% 92%);
+  cursor: pointer;
+}
+
+.demo-tour-btn:hover:not(:disabled) {
+  border-color: hsl(217 33% 38%);
+  background: hsl(217 33% 18%);
+}
+
+.demo-tour-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.demo-tour-btn--primary {
+  border-color: hsl(277 90% 65% / 0.45);
+  background: var(--gradient-hero);
+  color: hsl(210 40% 98%);
+}
+
+.demo-tour-popover--arrow-top::before,
+.demo-tour-popover--arrow-bottom::before,
+.demo-tour-popover--arrow-left::before,
+.demo-tour-popover--arrow-right::before {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: hsl(217 33% 18%);
+  border: 1px solid hsl(217 33% 28%);
+  transform: rotate(45deg);
+}
+
+.demo-tour-popover--arrow-top::before {
+  top: -6px;
+  left: 1.25rem;
+  border-bottom: none;
+  border-right: none;
+}
+
+.demo-tour-popover--arrow-bottom::before {
+  bottom: -6px;
+  left: 1.25rem;
+  border-top: none;
+  border-left: none;
+}
+
+.demo-tour-popover--arrow-left::before {
+  left: -6px;
+  top: 1.25rem;
+  border-top: none;
+  border-right: none;
+}
+
+.demo-tour-popover--arrow-right::before {
+  right: -6px;
+  top: 1.25rem;
+  border-bottom: none;
+  border-left: none;
+}

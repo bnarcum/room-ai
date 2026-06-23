@@ -62,7 +62,7 @@ export default function Home() {
           />
         </div>
         <div className="surface-card rounded-3xl p-7">
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2" id="tour-hero">
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[hsl(277_90%_72%/0.92)]">
               Collaboration spaces
             </p>
@@ -105,7 +105,7 @@ export default function Home() {
           </div>
 
           <div className="mt-8 grid gap-8 md:grid-cols-2">
-            <div className="grid gap-4">
+            <div className="grid gap-4" id="tour-upload">
               <label className="text-[15px] font-medium text-[hsl(210_40%_96%)]">
                 Room photo
               </label>
@@ -116,7 +116,7 @@ export default function Home() {
                 className="block w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.92)] px-3 py-2.5 text-[15px] text-[hsl(210_40%_96%)] outline-none transition-[box-shadow] file:mr-4 file:rounded-lg file:border-0 file:bg-[hsl(277_90%_65%/0.14)] file:px-3 file:py-2 file:text-[15px] file:font-semibold file:text-[hsl(210_40%_96%)] hover:file:bg-[hsl(277_90%_65%/0.22)] focus-visible:ring-2 focus-visible:ring-[hsl(277_90%_65%/0.45)]"
               />
 
-              <div className="grid gap-2">
+              <div className="grid gap-2" id="tour-options">
                 <label
                   htmlFor="ceiling-height"
                   className="text-[15px] font-medium text-[hsl(210_40%_96%)]"
@@ -166,6 +166,7 @@ export default function Home() {
 
               <button
                 type="button"
+                id="tour-analyze"
                 onClick={onAnalyze}
                 disabled={status === "uploading"}
                 className="btn-accent mt-1 inline-flex items-center justify-center rounded-xl px-5 py-3 text-[15px] font-semibold disabled:cursor-not-allowed"
@@ -207,7 +208,7 @@ export default function Home() {
                   </div>
                 )}
               </div>
-              <div className="copy-muted">
+              <div className="copy-muted" id="tour-privacy">
                 This app does not store your image server-side in v1; it only
                 sends it to the model for analysis.
               </div>

@@ -318,6 +318,7 @@ export default function ResultsClient() {
           <section
             className="mt-8 rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.55)] p-6"
             aria-label="Download exports"
+            id="tour-exports"
           >
             <h2 className="text-base font-semibold text-white">Downloads</h2>
 
@@ -624,7 +625,10 @@ export default function ResultsClient() {
           {!loading && decoded && decoded.ok ? (
               analysis ? (
                 <div className="mt-8 grid gap-6">
-                  <div className="rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.45)] p-5">
+                  <div
+                    className="rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.45)] p-5"
+                    id="tour-dimensions"
+                  >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="text-sm font-medium text-[hsl(210_40%_98%)]">
                         Estimated dimensions
@@ -739,7 +743,10 @@ export default function ResultsClient() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.45)] p-5">
+                  <div
+                    className="rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.45)] p-5"
+                    id="tour-recommendations"
+                  >
                     <div className="text-sm font-medium text-[hsl(210_40%_98%)]">
                       Recommendations
                     </div>
