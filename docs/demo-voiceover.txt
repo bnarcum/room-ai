@@ -1,23 +1,21 @@
 You're on a deal and the customer sends a phone photo of their meeting room. You need rough dimensions, AV guidance, and a path into design tools — without a site survey.
 
-SnapRoom turns one room photo into estimated length, width, and height, plus practical suggestions for camera, lighting, acoustics, display, seating, cabling, network, and power. When analysis finishes, you export straight into Collab Experience or Webex Workspace Designer. We'll walk the full flow in under five minutes — click Next on the tour as you go.
+SnapRoom turns one room photo into estimated length, width, and height, plus practical suggestions for camera, lighting, acoustics, display, seating, cabling, network, and power. When analysis finishes, you export straight into Collab Experience or Workspace Designer.
 
 Start on the home page. Choose a room photo — ideally showing at least two walls and where the ceiling meets the floor. That helps the vision model scale the space. The preview confirms you picked the right image before you run analysis.
 
 If you know the ceiling height, enter it here. Pick feet or meters for the output. These optional hints improve scale when the model can anchor on a known dimension.
 
-SnapRoom does not store your photo server-side in v1 — it's sent only for the model request, then discarded. That's important when customers ask about privacy on a live call.
+SnapRoom does not store your photo server-side in v1 — it's sent only for the model request, then discarded.
 
-Click Analyze photo. Vision AI reads the room geometry and layout — this usually takes a few seconds. The tour continues automatically when the Results page opens.
+Click Analyze photo. Vision AI reads the room geometry and layout — this usually takes a few seconds.
 
-On Results, you get rough length, width, and height estimates. Treat these as directional — good enough for a first conversation, a budgetary ROM, or scoping a refresh — not a substitute for a formal site survey. This is where a picture becomes numbers your customer and systems team can react to.
+On Results, you get rough length, width, and height estimates. Treat these as directional — good enough for a first conversation, a budgetary ROM, or scoping a refresh — not a substitute for a formal site survey.
 
 Scroll the recommendation categories — camera, lighting, acoustics, display, seating, cabling, network, and power. Use them as a discovery checklist on your next call.
 
-The payoff is one-click export. Download a Collab Experience dot vrc dot json file to carry room context into Video Room Calculator. Or download Webex Workspace Designer room JSON and drag it onto the canvas at designer dot webex dot com. Snap, size, suggest, then design.
+Now you have a one-click export. Download a Collab Experience dot vrc dot json file to carry room context into Video Room Calculator. Or download Workspace Designer room JSON and drag it onto the canvas at designer dot webex dot com. Snap, size, suggest, then design.
 
-For the fastest path, open Quick Estimate. Upload one photo. SnapRoom estimates seating capacity, screen count, and primary display size — then opens Cisco Workspace Designer with a matching room preset and chair count.
-
-Need full dimensions and both export formats? Use classic analysis or the guided wizard on the home page.
+For the fastest path, open Quick Estimate. Upload one photo. SnapRoom estimates seating capacity, screen count, and primary display size — then opens Workspace Designer with a matching room preset and chair count.
 
 That's SnapRoom — room insights from a single photo, on the Collaboration Seller Tools hub.

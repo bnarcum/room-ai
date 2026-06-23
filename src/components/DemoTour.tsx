@@ -10,6 +10,7 @@ import {
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
+  ANALYZE_STEP_INDEX,
   DEMO_TOUR_STEPS,
   DEMO_TOUR_VERSION,
   readDemoTourState,
@@ -46,6 +47,14 @@ function waitForSelector(
   });
 }
 
+function waitForPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
 export function DemoTourShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -53,45 +62,40 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
 
   const [active, setActive] = useState(false);
   const [stepIdx, setStepIdx] = useState(0);
-  const [popoverHtml, setPopoverHtml] = useState({ title: "", body: "", tip: "" });
-  const [waitingResults, setWaitingResults] = useState(false);
+  const [popoverVisible, setPopoverVisible] = useState(false);
 
   const pendingNavStep = useRef<number | null>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const spotlightRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  const persist = useCallback(
-    (nextActive: boolean, nextStep: number) => {
-      if (nextActive) {
-        writeDemoTourState({
-          active: true,
-          step: nextStep,
-          version: DEMO_TOUR_VERSION,
-        });
-      } else {
-        writeDemoTourState(null);
-      }
-    },
-    [],
-  );
+  const step = DEMO_TOUR_STEPS[stepIdx];
+
+  const persist = useCallback((nextActive: boolean, nextStep: number) => {
+    if (nextActive) {
+      writeDemoTourState({
+        active: true,
+        step: nextStep,
+        version: DEMO_TOUR_VERSION,
+      });
+    } else {
+      writeDemoTourState(null);
+    }
+  }, []);
 
   const endTour = useCallback(() => {
     setActive(false);
     setStepIdx(0);
-    setWaitingResults(false);
+    setPopoverVisible(false);
     pendingNavStep.current = null;
     persist(false, 0);
-    backdropRef.current?.classList.remove("is-visible");
-    spotlightRef.current?.classList.remove("is-visible");
-    if (popoverRef.current) popoverRef.current.style.visibility = "hidden";
   }, [persist]);
 
-  const positionStep = useCallback((step: DemoTourStep, el: Element | null) => {
+  const positionStep = useCallback((tourStep: DemoTourStep, el: Element | null) => {
     const backdrop = backdropRef.current;
     const spotlight = spotlightRef.current;
     const popover = popoverRef.current;
-    if (!backdrop || !spotlight || !popover) return;
+    if (!backdrop || !spotlight || !popover) return false;
 
     backdrop.classList.add("is-visible");
     const vw = window.innerWidth;
@@ -99,18 +103,21 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
     const gap = 14;
 
     popover.classList.remove(
+      "demo-tour-popover--center",
       "demo-tour-popover--arrow-top",
       "demo-tour-popover--arrow-bottom",
       "demo-tour-popover--arrow-left",
       "demo-tour-popover--arrow-right",
     );
 
-    if (!el || step.place === "center") {
+    if (!el || tourStep.place === "center") {
       spotlight.classList.remove("is-visible");
-      popover.style.top = `${Math.max(16, vh / 2 - 120)}px`;
-      popover.style.left = `${Math.max(16, vw / 2 - 170)}px`;
-      popover.style.visibility = "visible";
-      return;
+      popover.classList.add("demo-tour-popover--center");
+      popover.style.top = "";
+      popover.style.left = "";
+      popover.style.transform = "";
+      setPopoverVisible(true);
+      return true;
     }
 
     const r = el.getBoundingClientRect();
@@ -124,19 +131,20 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
     spotlight.style.width = `${r.width + 16}px`;
     spotlight.style.height = `${r.height + 16}px`;
 
+    popover.style.transform = "";
     const pr = popover.getBoundingClientRect();
     let top = 0;
     let left = 0;
 
-    if (step.place === "bottom") {
+    if (tourStep.place === "bottom") {
       top = r.bottom + gap;
       left = Math.max(10, Math.min(vw - 340, r.left));
       popover.classList.add("demo-tour-popover--arrow-top");
-    } else if (step.place === "top") {
+    } else if (tourStep.place === "top") {
       top = r.top - pr.height - gap;
       left = Math.max(10, Math.min(vw - 340, r.left));
       popover.classList.add("demo-tour-popover--arrow-bottom");
-    } else if (step.place === "left") {
+    } else if (tourStep.place === "left") {
       left = r.left - 340 - gap;
       top = Math.max(10, Math.min(vh - 200, r.top));
       popover.classList.add("demo-tour-popover--arrow-right");
@@ -153,48 +161,20 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
 
     popover.style.top = `${top}px`;
     popover.style.left = `${left}px`;
-    popover.style.visibility = "visible";
+    setPopoverVisible(true);
+    return true;
   }, []);
 
-  const renderStep = useCallback(
-    async (idx: number) => {
-      const step = DEMO_TOUR_STEPS[idx];
-      if (!step) return;
-
-      setPopoverHtml({
-        title: step.title,
-        body: step.body,
-        tip: step.tip ?? "",
-      });
-      setWaitingResults(Boolean(step.waitForResults));
-
-      if (step.route && pathname !== step.route) {
-        pendingNavStep.current = idx;
-        router.push(step.route);
-        return;
-      }
-
-      pendingNavStep.current = null;
-
-      let el: Element | null = null;
-      if (step.target) {
-        el = await waitForSelector(step.target);
-      }
-      positionStep(step, el);
-    },
-    [pathname, positionStep, router],
-  );
-
   const startTour = useCallback(() => {
-    setActive(true);
+    pendingNavStep.current = null;
     setStepIdx(0);
+    setActive(true);
     persist(true, 0);
-    void renderStep(0);
-  }, [persist, renderStep]);
+  }, [persist]);
 
   const goNext = useCallback(() => {
-    const step = DEMO_TOUR_STEPS[stepIdx];
-    if (step?.waitForResults && pathname !== "/results") return;
+    const current = DEMO_TOUR_STEPS[stepIdx];
+    if (current?.waitForResults && pathname !== "/results") return;
 
     if (stepIdx >= DEMO_TOUR_STEPS.length - 1) {
       endTour();
@@ -203,16 +183,14 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
     const next = stepIdx + 1;
     setStepIdx(next);
     persist(true, next);
-    void renderStep(next);
-  }, [endTour, pathname, persist, renderStep, stepIdx]);
+  }, [endTour, pathname, persist, stepIdx]);
 
   const goBack = useCallback(() => {
     if (stepIdx <= 0) return;
     const prev = stepIdx - 1;
     setStepIdx(prev);
     persist(true, prev);
-    void renderStep(prev);
-  }, [persist, renderStep, stepIdx]);
+  }, [persist, stepIdx]);
 
   useEffect(() => {
     window.startSnapRoomTour = startTour;
@@ -224,11 +202,10 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     const saved = readDemoTourState();
     if (saved?.active && saved.version === DEMO_TOUR_VERSION) {
-      setActive(true);
       setStepIdx(saved.step);
-      void renderStep(saved.step);
+      setActive(true);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- restore once on mount
+  }, []);
 
   useEffect(() => {
     if (searchParams.get("tour") === "1" && !active) {
@@ -237,37 +214,79 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
   }, [searchParams, active, startTour]);
 
   useEffect(() => {
-    if (!active) return;
-    if (pendingNavStep.current !== null) {
-      const idx = pendingNavStep.current;
-      const step = DEMO_TOUR_STEPS[idx];
-      if (step?.route === pathname) {
-        pendingNavStep.current = null;
-        void renderStep(idx);
+    if (!active || stepIdx < 0 || stepIdx >= DEMO_TOUR_STEPS.length) return;
+
+    let cancelled = false;
+
+    const layout = async () => {
+      const tourStep = DEMO_TOUR_STEPS[stepIdx];
+      if (!tourStep) return;
+
+      setPopoverVisible(false);
+
+      if (tourStep.route && pathname !== tourStep.route) {
+        pendingNavStep.current = stepIdx;
+        router.push(tourStep.route);
+        return;
       }
-    }
-  }, [active, pathname, renderStep]);
+
+      pendingNavStep.current = null;
+      await waitForPaint();
+      if (cancelled) return;
+
+      let positioned = false;
+      for (let attempt = 0; attempt < 8 && !positioned; attempt += 1) {
+        if (cancelled) return;
+        let el: Element | null = null;
+        if (tourStep.target) {
+          el = await waitForSelector(tourStep.target, attempt === 0 ? 4000 : 600);
+        }
+        positioned = positionStep(tourStep, el);
+        if (!positioned) await waitForPaint();
+      }
+    };
+
+    void layout();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [active, stepIdx, pathname, positionStep, router]);
 
   useEffect(() => {
     if (!active) return;
-    const step = DEMO_TOUR_STEPS[stepIdx];
-    if (step?.waitForResults && pathname === "/results" && stepIdx === 5) {
-      const next = 6;
-      setStepIdx(next);
-      setWaitingResults(false);
-      persist(true, next);
-      void renderStep(next);
+    if (pendingNavStep.current === null) return;
+    const idx = pendingNavStep.current;
+    const pending = DEMO_TOUR_STEPS[idx];
+    if (pending?.route === pathname) {
+      pendingNavStep.current = null;
     }
-  }, [active, pathname, persist, renderStep, stepIdx]);
+  }, [active, pathname]);
+
+  useEffect(() => {
+    if (!active) return;
+    if (
+      stepIdx === ANALYZE_STEP_INDEX &&
+      pathname === "/results"
+    ) {
+      const next = ANALYZE_STEP_INDEX + 1;
+      setStepIdx(next);
+      persist(true, next);
+    }
+  }, [active, pathname, persist, stepIdx]);
 
   useEffect(() => {
     if (!active) return;
     const onResize = () => {
-      void renderStep(stepIdx);
+      const tourStep = DEMO_TOUR_STEPS[stepIdx];
+      if (!tourStep) return;
+      void waitForSelector(tourStep.target ?? "", 500).then((el) => {
+        positionStep(tourStep, el);
+      });
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [active, renderStep, stepIdx]);
+  }, [active, positionStep, stepIdx]);
 
   useEffect(() => {
     if (!active) return;
@@ -278,17 +297,11 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [active, endTour]);
 
-  useEffect(() => {
-    if (!active) {
-      backdropRef.current?.classList.remove("is-visible");
-      spotlightRef.current?.classList.remove("is-visible");
-      if (popoverRef.current) popoverRef.current.style.visibility = "hidden";
-    }
-  }, [active]);
-
   const isLast = stepIdx >= DEMO_TOUR_STEPS.length - 1;
   const analyzeWaiting =
-    waitingResults && pathname !== "/results" && stepIdx === 5;
+    step?.waitForResults === true &&
+    pathname !== "/results" &&
+    stepIdx === ANALYZE_STEP_INDEX;
 
   return (
     <>
@@ -308,60 +321,57 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
 
       {active ? (
         <>
-      <div
-        ref={backdropRef}
-        className="demo-tour-backdrop is-visible"
-        aria-hidden="true"
-        onClick={endTour}
-      />
+          <div
+            ref={backdropRef}
+            className="demo-tour-backdrop is-visible"
+            aria-hidden="true"
+            onClick={endTour}
+          />
 
-      <div
-        ref={spotlightRef}
-        className="demo-tour-spotlight"
-        aria-hidden="true"
-      />
+          <div
+            ref={spotlightRef}
+            className="demo-tour-spotlight"
+            aria-hidden="true"
+          />
 
-      <div
-        ref={popoverRef}
-        className="demo-tour-popover"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="demo-tour-title"
-        style={{ visibility: "hidden" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p className="demo-tour-step-label">
-          Step {stepIdx + 1} of {DEMO_TOUR_STEPS.length}
-        </p>
-        <h2 id="demo-tour-title" className="demo-tour-title">
-          {popoverHtml.title}
-        </h2>
-        <p className="demo-tour-body">{popoverHtml.body}</p>
-        {popoverHtml.tip ? (
-          <p className="demo-tour-tip">{popoverHtml.tip}</p>
-        ) : null}
-        {analyzeWaiting ? (
-          <p className="demo-tour-wait">Waiting for Results…</p>
-        ) : null}
-        <div className="demo-tour-actions">
-          <button type="button" className="demo-tour-btn" onClick={endTour}>
-            Skip
-          </button>
-          {stepIdx > 0 ? (
-            <button type="button" className="demo-tour-btn" onClick={goBack}>
-              Back
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="demo-tour-btn demo-tour-btn--primary"
-            onClick={goNext}
-            disabled={analyzeWaiting}
+          <div
+            ref={popoverRef}
+            className={`demo-tour-popover${popoverVisible ? " is-visible" : ""}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="demo-tour-title"
+            onClick={(e) => e.stopPropagation()}
           >
-            {isLast ? "Done" : analyzeWaiting ? "Analyze first…" : "Next"}
-          </button>
-        </div>
-      </div>
+            <p className="demo-tour-step-label">
+              Step {stepIdx + 1} of {DEMO_TOUR_STEPS.length}
+            </p>
+            <h2 id="demo-tour-title" className="demo-tour-title">
+              {step?.title ?? ""}
+            </h2>
+            <p className="demo-tour-body">{step?.body ?? ""}</p>
+            {step?.tip ? <p className="demo-tour-tip">{step.tip}</p> : null}
+            {analyzeWaiting ? (
+              <p className="demo-tour-wait">Waiting for Results…</p>
+            ) : null}
+            <div className="demo-tour-actions">
+              <button type="button" className="demo-tour-btn" onClick={endTour}>
+                Skip
+              </button>
+              {stepIdx > 0 ? (
+                <button type="button" className="demo-tour-btn" onClick={goBack}>
+                  Back
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="demo-tour-btn demo-tour-btn--primary"
+                onClick={goNext}
+                disabled={analyzeWaiting}
+              >
+                {isLast ? "Done" : analyzeWaiting ? "Analyze first…" : "Next"}
+              </button>
+            </div>
+          </div>
         </>
       ) : null}
     </>
