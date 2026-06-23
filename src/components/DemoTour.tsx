@@ -15,6 +15,7 @@ import {
   DEMO_TOUR_VERSION,
   readDemoTourState,
   writeDemoTourState,
+  type DemoTourPlace,
   type DemoTourStep,
 } from "@/lib/demoTour";
 
@@ -23,6 +24,15 @@ declare global {
     startSnapRoomTour?: () => void;
   }
 }
+
+type AnchorLayout = {
+  mode: "center" | "anchored";
+  top?: number;
+  left?: number;
+  arrow?: Exclude<DemoTourPlace, "center">;
+};
+
+const HIDDEN_LAYOUT: AnchorLayout = { mode: "center" };
 
 function waitForSelector(
   selector: string,
@@ -55,6 +65,51 @@ function waitForPaint(): Promise<void> {
   });
 }
 
+function computeAnchorLayout(
+  tourStep: DemoTourStep,
+  el: Element | null,
+  popoverHeight: number,
+): AnchorLayout {
+  if (!el || tourStep.place === "center") {
+    return { mode: "center" };
+  }
+
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const gap = 14;
+  const popoverWidth = Math.min(340, vw - 24);
+  const r = el.getBoundingClientRect();
+
+  let top = 0;
+  let left = 0;
+  let arrow: Exclude<DemoTourPlace, "center"> = "bottom";
+
+  if (tourStep.place === "bottom") {
+    top = r.bottom + gap;
+    left = Math.max(12, Math.min(vw - popoverWidth - 12, r.left));
+    arrow = "top";
+  } else if (tourStep.place === "top") {
+    top = r.top - popoverHeight - gap;
+    left = Math.max(12, Math.min(vw - popoverWidth - 12, r.left));
+    arrow = "bottom";
+  } else if (tourStep.place === "left") {
+    left = r.left - popoverWidth - gap;
+    top = Math.max(12, Math.min(vh - popoverHeight - 12, r.top));
+    arrow = "right";
+  } else {
+    left = r.right + gap;
+    top = Math.max(12, Math.min(vh - popoverHeight - 12, r.top));
+    arrow = "left";
+  }
+
+  if (top < 12) top = 12;
+  if (left < 12) left = 12;
+  if (top + popoverHeight > vh - 12) top = Math.max(12, vh - popoverHeight - 12);
+  if (left + popoverWidth > vw - 12) left = Math.max(12, vw - popoverWidth - 12);
+
+  return { mode: "anchored", top, left, arrow };
+}
+
 export function DemoTourShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -62,14 +117,15 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
 
   const [active, setActive] = useState(false);
   const [stepIdx, setStepIdx] = useState(0);
-  const [popoverVisible, setPopoverVisible] = useState(false);
+  const [layout, setLayout] = useState<AnchorLayout>(HIDDEN_LAYOUT);
+  const [layoutReady, setLayoutReady] = useState(false);
 
   const pendingNavStep = useRef<number | null>(null);
-  const backdropRef = useRef<HTMLDivElement>(null);
   const spotlightRef = useRef<HTMLDivElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
 
   const step = DEMO_TOUR_STEPS[stepIdx];
+  const isCenter = layout.mode === "center";
 
   const persist = useCallback((nextActive: boolean, nextStep: number) => {
     if (nextActive) {
@@ -86,41 +142,23 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
   const endTour = useCallback(() => {
     setActive(false);
     setStepIdx(0);
-    setPopoverVisible(false);
+    setLayout(HIDDEN_LAYOUT);
+    setLayoutReady(false);
     pendingNavStep.current = null;
     persist(false, 0);
   }, [persist]);
 
-  const positionStep = useCallback((tourStep: DemoTourStep, el: Element | null) => {
-    const backdrop = backdropRef.current;
+  const positionSpotlight = useCallback((el: Element | null) => {
     const spotlight = spotlightRef.current;
-    const popover = popoverRef.current;
-    if (!backdrop || !spotlight || !popover) return false;
+    if (!spotlight) return;
 
-    backdrop.classList.add("is-visible");
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const gap = 14;
-
-    popover.classList.remove(
-      "demo-tour-popover--center",
-      "demo-tour-popover--arrow-top",
-      "demo-tour-popover--arrow-bottom",
-      "demo-tour-popover--arrow-left",
-      "demo-tour-popover--arrow-right",
-    );
-
-    if (!el || tourStep.place === "center") {
+    if (!el) {
       spotlight.classList.remove("is-visible");
-      popover.classList.add("demo-tour-popover--center");
-      popover.style.top = "";
-      popover.style.left = "";
-      popover.style.transform = "";
-      setPopoverVisible(true);
-      return true;
+      return;
     }
 
     const r = el.getBoundingClientRect();
+    const vh = window.innerHeight;
     if (r.top < 0 || r.bottom > vh) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
@@ -130,44 +168,32 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
     spotlight.style.left = `${Math.max(0, r.left - 8)}px`;
     spotlight.style.width = `${r.width + 16}px`;
     spotlight.style.height = `${r.height + 16}px`;
-
-    popover.style.transform = "";
-    const pr = popover.getBoundingClientRect();
-    let top = 0;
-    let left = 0;
-
-    if (tourStep.place === "bottom") {
-      top = r.bottom + gap;
-      left = Math.max(10, Math.min(vw - 340, r.left));
-      popover.classList.add("demo-tour-popover--arrow-top");
-    } else if (tourStep.place === "top") {
-      top = r.top - pr.height - gap;
-      left = Math.max(10, Math.min(vw - 340, r.left));
-      popover.classList.add("demo-tour-popover--arrow-bottom");
-    } else if (tourStep.place === "left") {
-      left = r.left - 340 - gap;
-      top = Math.max(10, Math.min(vh - 200, r.top));
-      popover.classList.add("demo-tour-popover--arrow-right");
-    } else {
-      left = r.right + gap;
-      top = Math.max(10, Math.min(vh - 200, r.top));
-      popover.classList.add("demo-tour-popover--arrow-left");
-    }
-
-    if (top < 10) top = 10;
-    if (left < 10) left = 10;
-    if (top + 180 > vh - 10) top = Math.max(10, vh - 200);
-    if (left + 340 > vw - 10) left = Math.max(10, vw - 350);
-
-    popover.style.top = `${top}px`;
-    popover.style.left = `${left}px`;
-    setPopoverVisible(true);
-    return true;
   }, []);
+
+  const layoutStep = useCallback(
+    async (tourStep: DemoTourStep, el: Element | null) => {
+      await waitForPaint();
+
+      const popoverHeight = measureRef.current?.offsetHeight ?? 220;
+      const nextLayout = computeAnchorLayout(tourStep, el, popoverHeight);
+
+      if (nextLayout.mode === "center") {
+        positionSpotlight(null);
+      } else if (el) {
+        positionSpotlight(el);
+      }
+
+      setLayout(nextLayout);
+      setLayoutReady(true);
+    },
+    [positionSpotlight],
+  );
 
   const startTour = useCallback(() => {
     pendingNavStep.current = null;
     setStepIdx(0);
+    setLayout(HIDDEN_LAYOUT);
+    setLayoutReady(false);
     setActive(true);
     persist(true, 0);
   }, [persist]);
@@ -181,6 +207,7 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
       return;
     }
     const next = stepIdx + 1;
+    setLayoutReady(false);
     setStepIdx(next);
     persist(true, next);
   }, [endTour, pathname, persist, stepIdx]);
@@ -188,6 +215,7 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
   const goBack = useCallback(() => {
     if (stepIdx <= 0) return;
     const prev = stepIdx - 1;
+    setLayoutReady(false);
     setStepIdx(prev);
     persist(true, prev);
   }, [persist, stepIdx]);
@@ -218,11 +246,11 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
 
     let cancelled = false;
 
-    const layout = async () => {
+    const run = async () => {
       const tourStep = DEMO_TOUR_STEPS[stepIdx];
       if (!tourStep) return;
 
-      setPopoverVisible(false);
+      setLayoutReady(false);
 
       if (tourStep.route && pathname !== tourStep.route) {
         pendingNavStep.current = stepIdx;
@@ -231,37 +259,22 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
       }
 
       pendingNavStep.current = null;
-      await waitForPaint();
+
+      let el: Element | null = null;
+      if (tourStep.target) {
+        el = await waitForSelector(tourStep.target);
+      }
       if (cancelled) return;
 
-      let positioned = false;
-      for (let attempt = 0; attempt < 8 && !positioned; attempt += 1) {
-        if (cancelled) return;
-        let el: Element | null = null;
-        if (tourStep.target) {
-          el = await waitForSelector(tourStep.target, attempt === 0 ? 4000 : 600);
-        }
-        positioned = positionStep(tourStep, el);
-        if (!positioned) await waitForPaint();
-      }
+      await layoutStep(tourStep, el);
     };
 
-    void layout();
+    void run();
 
     return () => {
       cancelled = true;
     };
-  }, [active, stepIdx, pathname, positionStep, router]);
-
-  useEffect(() => {
-    if (!active) return;
-    if (pendingNavStep.current === null) return;
-    const idx = pendingNavStep.current;
-    const pending = DEMO_TOUR_STEPS[idx];
-    if (pending?.route === pathname) {
-      pendingNavStep.current = null;
-    }
-  }, [active, pathname]);
+  }, [active, stepIdx, pathname, layoutStep, router]);
 
   useEffect(() => {
     if (!active) return;
@@ -270,23 +283,26 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
       pathname === "/results"
     ) {
       const next = ANALYZE_STEP_INDEX + 1;
+      setLayoutReady(false);
       setStepIdx(next);
       persist(true, next);
     }
   }, [active, pathname, persist, stepIdx]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || !layoutReady || layout.mode !== "anchored") return;
+    const tourStep = DEMO_TOUR_STEPS[stepIdx];
+    if (!tourStep?.target) return;
+
     const onResize = () => {
-      const tourStep = DEMO_TOUR_STEPS[stepIdx];
-      if (!tourStep) return;
       void waitForSelector(tourStep.target ?? "", 500).then((el) => {
-        positionStep(tourStep, el);
+        if (el) void layoutStep(tourStep, el);
       });
     };
+
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [active, positionStep, stepIdx]);
+  }, [active, layout.mode, layoutReady, layoutStep, stepIdx]);
 
   useEffect(() => {
     if (!active) return;
@@ -302,6 +318,52 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
     step?.waitForResults === true &&
     pathname !== "/results" &&
     stepIdx === ANALYZE_STEP_INDEX;
+
+  const popoverPanel = (
+    <div
+      ref={measureRef}
+      className="demo-tour-popover--panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="demo-tour-title"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <p className="demo-tour-step-label">
+        Step {stepIdx + 1} of {DEMO_TOUR_STEPS.length}
+      </p>
+      <h2 id="demo-tour-title" className="demo-tour-title">
+        {step?.title ?? ""}
+      </h2>
+      <p className="demo-tour-body">{step?.body ?? ""}</p>
+      {step?.tip ? <p className="demo-tour-tip">{step.tip}</p> : null}
+      {analyzeWaiting ? (
+        <p className="demo-tour-wait">Waiting for Results…</p>
+      ) : null}
+      <div className="demo-tour-actions">
+        <button type="button" className="demo-tour-btn" onClick={endTour}>
+          Skip
+        </button>
+        {stepIdx > 0 ? (
+          <button type="button" className="demo-tour-btn" onClick={goBack}>
+            Back
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="demo-tour-btn demo-tour-btn--primary"
+          onClick={goNext}
+          disabled={analyzeWaiting}
+        >
+          {isLast ? "Done" : analyzeWaiting ? "Analyze first…" : "Next"}
+        </button>
+      </div>
+    </div>
+  );
+
+  const anchoredArrowClass =
+    layout.mode === "anchored" && layout.arrow
+      ? ` demo-tour-popover--arrow-${layout.arrow}`
+      : "";
 
   return (
     <>
@@ -322,56 +384,47 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
       {active ? (
         <>
           <div
-            ref={backdropRef}
             className="demo-tour-backdrop is-visible"
             aria-hidden="true"
             onClick={endTour}
           />
 
-          <div
-            ref={spotlightRef}
-            className="demo-tour-spotlight"
-            aria-hidden="true"
-          />
+          {!isCenter ? (
+            <div
+              ref={spotlightRef}
+              className="demo-tour-spotlight"
+              aria-hidden="true"
+            />
+          ) : null}
 
-          <div
-            ref={popoverRef}
-            className={`demo-tour-popover${popoverVisible ? " is-visible" : ""}`}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="demo-tour-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="demo-tour-step-label">
-              Step {stepIdx + 1} of {DEMO_TOUR_STEPS.length}
-            </p>
-            <h2 id="demo-tour-title" className="demo-tour-title">
-              {step?.title ?? ""}
-            </h2>
-            <p className="demo-tour-body">{step?.body ?? ""}</p>
-            {step?.tip ? <p className="demo-tour-tip">{step.tip}</p> : null}
-            {analyzeWaiting ? (
-              <p className="demo-tour-wait">Waiting for Results…</p>
-            ) : null}
-            <div className="demo-tour-actions">
-              <button type="button" className="demo-tour-btn" onClick={endTour}>
-                Skip
-              </button>
-              {stepIdx > 0 ? (
-                <button type="button" className="demo-tour-btn" onClick={goBack}>
-                  Back
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className="demo-tour-btn demo-tour-btn--primary"
-                onClick={goNext}
-                disabled={analyzeWaiting}
-              >
-                {isLast ? "Done" : analyzeWaiting ? "Analyze first…" : "Next"}
-              </button>
+          {layoutReady && isCenter ? (
+            <div
+              className="demo-tour-center-shell"
+              onClick={endTour}
+            >
+              {popoverPanel}
             </div>
-          </div>
+          ) : null}
+
+          {layoutReady && !isCenter ? (
+            <div
+              className={`demo-tour-popover-anchor is-visible${anchoredArrowClass}`}
+              style={{
+                top: layout.top,
+                left: layout.left,
+              }}
+              role="presentation"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {popoverPanel}
+            </div>
+          ) : null}
+
+          {!layoutReady ? (
+            <div className="demo-tour-measure" aria-hidden="true">
+              {popoverPanel}
+            </div>
+          ) : null}
         </>
       ) : null}
     </>
