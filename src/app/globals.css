@@ -221,6 +221,7 @@ body {
     var(--shadow-card),
     0 12px 40px hsl(0 0% 0% / 0.45);
   color: hsl(210 40% 96%);
+  pointer-events: auto;
 }
 
 .demo-tour-popover-anchor {
@@ -242,8 +243,7 @@ body {
   pointer-events: none;
 }
 
-.demo-tour-center-shell .demo-tour-popover {
-  pointer-events: auto;
+.demo-tour-center-shell .demo-tour-popover--panel {
   max-height: min(85vh, 560px);
   overflow-y: auto;
 }

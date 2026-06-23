@@ -110,7 +110,6 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
   const [stepIdx, setStepIdx] = useState(0);
   const [centered, setCentered] = useState(true);
   const [anchor, setAnchor] = useState<AnchorPosition | null>(null);
-  const [visible, setVisible] = useState(false);
 
   const autoStarted = useRef(false);
   const spotlightRef = useRef<HTMLDivElement>(null);
@@ -135,7 +134,6 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
     setStepIdx(0);
     setCentered(true);
     setAnchor(null);
-    setVisible(false);
     persist(false, 0);
   }, [persist]);
 
@@ -174,7 +172,6 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
       setCentered(true);
       setAnchor(null);
       positionSpotlight(null);
-      setVisible(true);
       return;
     }
 
@@ -183,7 +180,6 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
       setCentered(true);
       setAnchor(null);
       positionSpotlight(null);
-      setVisible(true);
       return;
     }
 
@@ -191,7 +187,6 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
     const nextAnchor = computeAnchorPosition(tourStep, el, popoverHeight);
     setAnchor(nextAnchor);
     setCentered(false);
-    setVisible(true);
     requestAnimationFrame(() => positionSpotlight(el));
   }, [pathname, positionSpotlight, router, stepIdx]);
 
@@ -199,7 +194,6 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
     setStepIdx(0);
     setCentered(true);
     setAnchor(null);
-    setVisible(false);
     setActive(true);
     persist(true, 0);
   }, [persist]);
@@ -329,7 +323,7 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
         ?
       </button>
 
-      {active && visible ? (
+      {active ? (
         <>
           <div className="demo-tour-backdrop is-visible" aria-hidden="true" />
 
