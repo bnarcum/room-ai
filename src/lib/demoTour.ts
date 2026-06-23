@@ -1,4 +1,4 @@
-export const DEMO_TOUR_VERSION = "v1.1";
+export const DEMO_TOUR_VERSION = "v1.2";
 export const DEMO_TOUR_STORAGE_KEY = "snaproom-demo-tour-v1";
 
 export type DemoTourPlace = "top" | "bottom" | "left" | "right" | "center";
@@ -10,12 +10,10 @@ export type DemoTourStep = {
   place: DemoTourPlace;
   title: string;
   body: string;
-  tip?: string;
   /** Stay on this step until the user lands on /results (Analyze step). */
   waitForResults?: boolean;
 };
 
-/** One step per voiceover beat — click Next in sync with your ElevenLabs track. */
 export const DEMO_TOUR_STEPS: DemoTourStep[] = [
   {
     id: "welcome",
@@ -24,7 +22,6 @@ export const DEMO_TOUR_STEPS: DemoTourStep[] = [
     place: "center",
     title: "SnapRoom",
     body: "You're on a deal and the customer sends a room photo. SnapRoom turns one image into length, width, and height estimates, AV suggestions, and one-click exports to Collab Experience and Workspace Designer.",
-    tip: "Play your voiceover, then click Next through each step.",
   },
   {
     id: "upload",
