@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Smoke test: SnapRoom demo tour advances through all steps on /.
+ * Smoke test: SnapRoom demo tour advances through home steps and loads demo results.
  * Run: node scripts/tour-smoke.mjs [baseUrl]
  */
 import { createRequire } from "node:module";
@@ -48,29 +48,31 @@ async function main() {
       throw new Error(`Expected "${expected}", got "${label}"`);
     }
 
-    const nextLabel = i === HOME_STEPS - 1 ? "Analyze first…" : "Next";
-    const next = dialog.getByRole("button", { name: nextLabel, exact: true });
+    const next = dialog.getByRole("button", { name: "Next", exact: true });
     await next.waitFor({ state: "visible", timeout: 5000 });
 
-    // Verify Next is actually clickable (pointer-events fix)
     const box = await next.boundingBox();
     if (!box) throw new Error(`Next button not hittable on step ${i + 1}`);
 
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(i === HOME_STEPS - 1 ? 800 : 400);
   }
 
+  await page.waitForURL(/\/results/, { timeout: 10_000 });
+
   const finalLabel = await page.locator('[role="dialog"] .demo-tour-step-label').textContent();
-  if (!finalLabel?.includes("Step 5")) {
-    throw new Error(`After advancing, expected step 5, got "${finalLabel}"`);
+  if (!finalLabel?.includes("Step 6")) {
+    throw new Error(`After demo results, expected step 6, got "${finalLabel}"`);
   }
+
+  await page.waitForSelector("#tour-dimensions", { timeout: 10_000 });
 
   const backdrop = await page.locator(".demo-tour-backdrop.is-visible").count();
   if (backdrop === 0) {
-    throw new Error("Tour backdrop disappeared before step 5");
+    throw new Error("Tour backdrop disappeared on results step 6");
   }
 
-  console.log("OK: tour advanced steps 1→5, dialog and backdrop still active");
+  console.log("OK: tour steps 1→5, demo results loaded, step 6 on /results");
   await browser.close();
 }
 

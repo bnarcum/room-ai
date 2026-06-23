@@ -10,6 +10,7 @@ import {
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
+import { seedDemoAnalysisForTour } from "@/lib/demoAnalysisFixture";
 import {
   ANALYZE_STEP_INDEX,
   DEMO_TOUR_STEPS,
@@ -200,7 +201,19 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
 
   const goNext = useCallback(() => {
     const current = DEMO_TOUR_STEPS[stepIdx];
-    if (current?.waitForResults && pathname !== "/results") return;
+
+    if (
+      current?.waitForResults &&
+      pathname !== "/results" &&
+      stepIdx === ANALYZE_STEP_INDEX
+    ) {
+      seedDemoAnalysisForTour();
+      const nextStep = ANALYZE_STEP_INDEX + 1;
+      setStepIdx(nextStep);
+      persist(true, nextStep);
+      router.push("/results");
+      return;
+    }
 
     if (stepIdx >= DEMO_TOUR_STEPS.length - 1) {
       endTour();
@@ -208,7 +221,7 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
     }
     setStepIdx(stepIdx + 1);
     persist(true, stepIdx + 1);
-  }, [endTour, pathname, persist, stepIdx]);
+  }, [endTour, pathname, persist, router, stepIdx]);
 
   const goBack = useCallback(() => {
     if (stepIdx <= 0) return;
@@ -260,10 +273,6 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
   }, [active, endTour]);
 
   const isLast = stepIdx >= DEMO_TOUR_STEPS.length - 1;
-  const analyzeWaiting =
-    step?.waitForResults === true &&
-    pathname !== "/results" &&
-    stepIdx === ANALYZE_STEP_INDEX;
 
   const arrowClass =
     !centered && anchor ? ` demo-tour-popover--arrow-${anchor.arrow}` : "";
@@ -283,9 +292,6 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
         {step?.title ?? ""}
       </h2>
       <p className="demo-tour-body">{step?.body ?? ""}</p>
-      {analyzeWaiting ? (
-        <p className="demo-tour-wait">Waiting for Results…</p>
-      ) : null}
       <div className="demo-tour-actions">
         <button type="button" className="demo-tour-btn" onClick={endTour}>
           Skip
@@ -299,9 +305,8 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
           type="button"
           className="demo-tour-btn demo-tour-btn--primary"
           onClick={goNext}
-          disabled={analyzeWaiting}
         >
-          {isLast ? "Done" : analyzeWaiting ? "Analyze first…" : "Next"}
+          {isLast ? "Done" : "Next"}
         </button>
       </div>
     </div>

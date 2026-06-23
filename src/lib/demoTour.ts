@@ -1,4 +1,4 @@
-export const DEMO_TOUR_VERSION = "v1.4";
+export const DEMO_TOUR_VERSION = "v1.5";
 export const DEMO_TOUR_STORAGE_KEY = "snaproom-demo-tour-v1";
 
 export type DemoTourPlace = "top" | "bottom" | "left" | "right" | "center";
@@ -53,7 +53,7 @@ export const DEMO_TOUR_STEPS: DemoTourStep[] = [
     target: "#tour-analyze",
     place: "top",
     title: "Analyze photo",
-    body: "Click Analyze photo. Vision AI reads the room geometry and layout — this usually takes a few seconds. The tour continues when Results opens.",
+    body: "Click Next to load demo results and continue — or run Analyze photo on a real upload for a live Vision AI pass.",
     waitForResults: true,
   },
   {
