@@ -78,7 +78,7 @@ export const DEMO_TOUR_STEPS: DemoTourStep[] = [
     target: "#tour-exports",
     place: "bottom",
     title: "One-click export",
-    body: "Download Collab Experience dot vrc dot json for Video Room Calculator. Or download Workspace Designer room JSON and drag it onto the canvas at designer dot webex dot com. Snap, size, suggest, then design.",
+    body: "Download Collab Experience .vrc.json for Video Room Calculator. Or download Workspace Designer room JSON and drag it onto the canvas at designer.webex.com. Snap, size, suggest, then design.",
   },
   {
     id: "quick",
