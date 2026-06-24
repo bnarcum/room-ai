@@ -251,11 +251,12 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
 
     if (stepIdx >= DEMO_TOUR_STEPS.length - 1) {
       endTour();
+      router.push("/");
       return;
     }
     setStepIdx(stepIdx + 1);
     persist(true, stepIdx + 1);
-  }, [analyzing, endTour, pathname, persist, runDemoAnalyze, stepIdx]);
+  }, [analyzing, endTour, pathname, persist, router, runDemoAnalyze, stepIdx]);
 
   const goBack = useCallback(() => {
     if (stepIdx <= 0) return;
