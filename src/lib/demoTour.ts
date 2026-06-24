@@ -1,4 +1,4 @@
-export const DEMO_TOUR_VERSION = "v1.6";
+export const DEMO_TOUR_VERSION = "v1.7";
 export const DEMO_TOUR_STORAGE_KEY = "snaproom-demo-tour-v1";
 
 export type DemoTourPlace = "top" | "bottom" | "left" | "right" | "center";

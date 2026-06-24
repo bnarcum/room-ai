@@ -78,9 +78,11 @@ async function main() {
 
   await page.waitForSelector("#tour-dimensions", { timeout: 10_000 });
 
-  const backdrop = await page.locator(".demo-tour-backdrop.is-visible").count();
-  if (backdrop === 0) {
-    throw new Error("Tour backdrop disappeared on results step 6");
+  const overlay =
+    (await page.locator(".demo-tour-backdrop.is-visible").count()) +
+    (await page.locator(".demo-tour-spotlight.is-visible").count());
+  if (overlay === 0) {
+    throw new Error("Tour dim overlay disappeared on results step 6");
   }
 
   console.log("OK: tour steps 1→5, demo results loaded, step 6 on /results");

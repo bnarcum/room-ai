@@ -120,6 +120,14 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
   const autoStarted = useRef(false);
   const spotlightRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const elevatedTargetRef = useRef<Element | null>(null);
+
+  const clearElevatedTarget = useCallback(() => {
+    if (elevatedTargetRef.current) {
+      elevatedTargetRef.current.classList.remove("demo-tour-target-elevated");
+      elevatedTargetRef.current = null;
+    }
+  }, []);
 
   const step = DEMO_TOUR_STEPS[stepIdx];
 
@@ -141,30 +149,39 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
     setStepIdx(0);
     setCentered(true);
     setAnchor(null);
+    clearElevatedTarget();
     persist(false, 0);
-  }, [persist]);
+  }, [clearElevatedTarget, persist]);
 
-  const positionSpotlight = useCallback((el: Element | null) => {
-    const spotlight = spotlightRef.current;
-    if (!spotlight) return;
+  const positionSpotlight = useCallback(
+    (el: Element | null) => {
+      const spotlight = spotlightRef.current;
+      clearElevatedTarget();
 
-    if (!el) {
-      spotlight.classList.remove("is-visible");
-      return;
-    }
+      if (!spotlight) return;
 
-    const r = el.getBoundingClientRect();
-    const vh = window.innerHeight;
-    if (r.top < 0 || r.bottom > vh) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
+      if (!el) {
+        spotlight.classList.remove("is-visible");
+        return;
+      }
 
-    spotlight.classList.add("is-visible");
-    spotlight.style.top = `${Math.max(0, r.top - 8)}px`;
-    spotlight.style.left = `${Math.max(0, r.left - 8)}px`;
-    spotlight.style.width = `${r.width + 16}px`;
-    spotlight.style.height = `${r.height + 16}px`;
-  }, []);
+      const r = el.getBoundingClientRect();
+      const vh = window.innerHeight;
+      if (r.top < 0 || r.bottom > vh) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      el.classList.add("demo-tour-target-elevated");
+      elevatedTargetRef.current = el;
+
+      spotlight.classList.add("is-visible");
+      spotlight.style.top = `${Math.max(0, r.top - 8)}px`;
+      spotlight.style.left = `${Math.max(0, r.left - 8)}px`;
+      spotlight.style.width = `${r.width + 16}px`;
+      spotlight.style.height = `${r.height + 16}px`;
+    },
+    [clearElevatedTarget],
+  );
 
   const layoutCurrentStep = useCallback(async () => {
     const tourStep = DEMO_TOUR_STEPS[stepIdx];
@@ -362,15 +379,15 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
 
       {active ? (
         <>
-          <div className="demo-tour-backdrop is-visible" aria-hidden="true" />
-
-          {!centered ? (
+          {centered ? (
+            <div className="demo-tour-backdrop is-visible" aria-hidden="true" />
+          ) : (
             <div
               ref={spotlightRef}
               className="demo-tour-spotlight is-visible"
               aria-hidden="true"
             />
-          ) : null}
+          )}
 
           {centered ? (
             <div className="demo-tour-center-shell">{popover}</div>

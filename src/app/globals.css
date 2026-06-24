@@ -177,7 +177,7 @@ body {
   position: fixed;
   inset: 0;
   z-index: 10040;
-  background: hsl(222 47% 6% / 0.62);
+  background: hsl(222 47% 6% / 0.55);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
@@ -188,21 +188,30 @@ body {
   pointer-events: auto;
 }
 
+/* Cutout dim — no full backdrop underneath or the hole stays grey */
 .demo-tour-spotlight {
   position: fixed;
   z-index: 10045;
   border-radius: 1rem;
-  box-shadow:
-    0 0 0 9999px hsl(222 47% 6% / 0.62),
-    0 0 0 2px hsl(277 90% 72% / 0.85),
-    0 0 32px hsl(277 90% 65% / 0.35);
-  pointer-events: none;
+  background: transparent;
+  box-shadow: 0 0 0 9999px hsl(222 47% 6% / 0.55);
+  pointer-events: auto;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
 
 .demo-tour-spotlight.is-visible {
   opacity: 1;
+}
+
+/* Lift highlighted UI above the dim layer so it stays fully readable */
+.demo-tour-target-elevated {
+  position: relative;
+  z-index: 10050;
+  border-radius: 1rem;
+  outline: 2px solid hsl(277 90% 72% / 0.9);
+  outline-offset: 3px;
+  box-shadow: 0 0 28px hsl(277 90% 65% / 0.4);
 }
 
 .demo-tour-popover--panel {
