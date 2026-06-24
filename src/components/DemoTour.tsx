@@ -20,6 +20,10 @@ import {
   type DemoTourPlace,
   type DemoTourStep,
 } from "@/lib/demoTour";
+import {
+  DEMO_TOUR_ANALYZE_MS,
+  TourDemoProvider,
+} from "@/components/TourDemoContext";
 
 declare global {
   interface Window {
@@ -111,6 +115,7 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
   const [stepIdx, setStepIdx] = useState(0);
   const [centered, setCentered] = useState(true);
   const [anchor, setAnchor] = useState<AnchorPosition | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const autoStarted = useRef(false);
   const spotlightRef = useRef<HTMLDivElement>(null);
@@ -131,6 +136,7 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
   }, []);
 
   const endTour = useCallback(() => {
+    setAnalyzing(false);
     setActive(false);
     setStepIdx(0);
     setCentered(true);
@@ -199,6 +205,20 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
     persist(true, 0);
   }, [persist]);
 
+  const runDemoAnalyze = useCallback(async () => {
+    if (analyzing) return;
+    setAnalyzing(true);
+    await new Promise((resolve) => {
+      window.setTimeout(resolve, DEMO_TOUR_ANALYZE_MS);
+    });
+    seedDemoAnalysisForTour();
+    const nextStep = ANALYZE_STEP_INDEX + 1;
+    setStepIdx(nextStep);
+    persist(true, nextStep);
+    setAnalyzing(false);
+    router.push("/results");
+  }, [analyzing, persist, router]);
+
   const goNext = useCallback(() => {
     const current = DEMO_TOUR_STEPS[stepIdx];
 
@@ -207,11 +227,8 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
       pathname !== "/results" &&
       stepIdx === ANALYZE_STEP_INDEX
     ) {
-      seedDemoAnalysisForTour();
-      const nextStep = ANALYZE_STEP_INDEX + 1;
-      setStepIdx(nextStep);
-      persist(true, nextStep);
-      router.push("/results");
+      if (analyzing) return;
+      void runDemoAnalyze();
       return;
     }
 
@@ -221,7 +238,7 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
     }
     setStepIdx(stepIdx + 1);
     persist(true, stepIdx + 1);
-  }, [endTour, pathname, persist, router, stepIdx]);
+  }, [analyzing, endTour, pathname, persist, runDemoAnalyze, stepIdx]);
 
   const goBack = useCallback(() => {
     if (stepIdx <= 0) return;
@@ -273,6 +290,8 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
   }, [active, endTour]);
 
   const isLast = stepIdx >= DEMO_TOUR_STEPS.length - 1;
+  const onAnalyzeStep = stepIdx === ANALYZE_STEP_INDEX && pathname === "/";
+  const canDemoAnalyze = active && onAnalyzeStep && !analyzing;
 
   const arrowClass =
     !centered && anchor ? ` demo-tour-popover--arrow-${anchor.arrow}` : "";
@@ -292,6 +311,9 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
         {step?.title ?? ""}
       </h2>
       <p className="demo-tour-body">{step?.body ?? ""}</p>
+      {analyzing && onAnalyzeStep ? (
+        <p className="demo-tour-wait">Analyzing photo…</p>
+      ) : null}
       <div className="demo-tour-actions">
         <button type="button" className="demo-tour-btn" onClick={endTour}>
           Skip
@@ -305,15 +327,25 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
           type="button"
           className="demo-tour-btn demo-tour-btn--primary"
           onClick={goNext}
+          disabled={analyzing}
         >
-          {isLast ? "Done" : "Next"}
+          {isLast ? "Done" : analyzing && onAnalyzeStep ? "Analyzing…" : "Next"}
         </button>
       </div>
     </div>
   );
 
   return (
-    <>
+    <TourDemoProvider
+      value={{
+        active,
+        analyzing,
+        canDemoAnalyze,
+        startDemoAnalyze: () => {
+          void runDemoAnalyze();
+        },
+      }}
+    >
       {children}
 
       <button
@@ -356,6 +388,6 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
           )}
         </>
       ) : null}
-    </>
+    </TourDemoProvider>
   );
 }

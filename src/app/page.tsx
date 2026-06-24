@@ -5,10 +5,16 @@ import { useRouter } from "next/navigation";
 
 import Link from "next/link";
 import { SiteBrandLink } from "@/components/SiteBrand";
+import {
+  DEMO_TOUR_ROOM_PHOTO,
+  useTourDemo,
+} from "@/components/TourDemoContext";
 import { runClientRoomAnalysis } from "@/lib/runClientAnalysis";
 
 export default function Home() {
   const router = useRouter();
+  const { active: tourActive, analyzing: tourAnalyzing, canDemoAnalyze, startDemoAnalyze } =
+    useTourDemo();
   const [file, setFile] = useState<File | null>(null);
   const [ceilingHeight, setCeilingHeight] = useState("");
   const [unit, setUnit] = useState<"feet" | "meters">("feet");
@@ -22,6 +28,10 @@ export default function Home() {
     return URL.createObjectURL(file);
   }, [file]);
 
+  const displayPreviewUrl =
+    previewUrl ?? (tourActive ? DEMO_TOUR_ROOM_PHOTO : null);
+  const isAnalyzing = status === "uploading" || tourAnalyzing;
+
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
@@ -31,6 +41,10 @@ export default function Home() {
   async function onAnalyze() {
     setError(null);
     if (!file) {
+      if (canDemoAnalyze) {
+        startDemoAnalyze();
+        return;
+      }
       setStatus("error");
       setError("Please choose a photo to upload.");
       return;
@@ -115,6 +129,14 @@ export default function Home() {
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 className="block w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.92)] px-3 py-2.5 text-[15px] text-[hsl(210_40%_96%)] outline-none transition-[box-shadow] file:mr-4 file:rounded-lg file:border-0 file:bg-[hsl(277_90%_65%/0.14)] file:px-3 file:py-2 file:text-[15px] file:font-semibold file:text-[hsl(210_40%_96%)] hover:file:bg-[hsl(277_90%_65%/0.22)] focus-visible:ring-2 focus-visible:ring-[hsl(277_90%_65%/0.45)]"
               />
+              {tourActive && !file ? (
+                <p className="text-[13px] text-[hsl(215_20%_68%)]">
+                  Demo photo loaded —{" "}
+                  <span className="font-medium text-[hsl(215_20%_82%)]">
+                    conference-room.png
+                  </span>
+                </p>
+              ) : null}
 
               <div className="grid gap-2" id="tour-options">
                 <label
@@ -168,10 +190,10 @@ export default function Home() {
                 type="button"
                 id="tour-analyze"
                 onClick={onAnalyze}
-                disabled={status === "uploading"}
+                disabled={isAnalyzing}
                 className="btn-accent mt-1 inline-flex items-center justify-center rounded-xl px-5 py-3 text-[15px] font-semibold disabled:cursor-not-allowed"
               >
-                {status === "uploading" ? "Analyzing…" : "Analyze photo"}
+                {isAnalyzing ? "Analyzing…" : "Analyze photo"}
               </button>
 
               {error ? (
@@ -195,10 +217,10 @@ export default function Home() {
                 Preview
               </div>
               <div className="aspect-video w-full overflow-hidden rounded-2xl border border-[hsl(217_33%_25%)] bg-black/45 ring-1 ring-[hsl(217_33%_22%/0.6)]">
-                {previewUrl ? (
+                {displayPreviewUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={previewUrl}
+                    src={displayPreviewUrl}
                     alt="Selected room photo preview"
                     className="h-full w-full object-cover"
                   />

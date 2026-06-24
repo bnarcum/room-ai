@@ -55,10 +55,21 @@ async function main() {
     if (!box) throw new Error(`Next button not hittable on step ${i + 1}`);
 
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-    await page.waitForTimeout(i === HOME_STEPS - 1 ? 800 : 400);
-  }
 
-  await page.waitForURL(/\/results/, { timeout: 10_000 });
+    if (i === 1) {
+      const preview = page.locator('img[alt="Selected room photo preview"]');
+      const src = await preview.getAttribute("src");
+      if (!src?.includes("/demo/conference-room")) {
+        throw new Error(`Expected demo preview on step 2, got src="${src}"`);
+      }
+    }
+
+    if (i === HOME_STEPS - 1) {
+      await page.waitForURL(/\/results/, { timeout: 15_000 });
+    } else {
+      await page.waitForTimeout(400);
+    }
+  }
 
   const finalLabel = await page.locator('[role="dialog"] .demo-tour-step-label').textContent();
   if (!finalLabel?.includes("Step 6")) {
