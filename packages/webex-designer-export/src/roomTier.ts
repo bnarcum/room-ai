@@ -17,7 +17,7 @@ export type WebexRoomTier = {
 };
 
 const FT_PER_M = 3.28084;
-/** ~28 ft² per seat — 12×14 ft ≈ 6 seats. */
+/** ~28 ft² per seat — 12×14 ft ≈ 6 seats. Conference / classroom only. */
 const SQFT_PER_SEAT = 28;
 /** 12×12 ft and up is a small/medium room, never a huddle preset. */
 const SMALL_ROOM_MIN_AREA_FT = 144;
@@ -25,6 +25,24 @@ const SMALL_ROOM_MIN_SEATS = 5;
 
 export function clampDesignerSeatCount(seatCount: number): number {
   return Math.max(2, Math.min(36, Math.round(seatCount)));
+}
+
+/** Home / small-office — never apply the 12×14 → 6 seat area rule. */
+export function isPersonalWorkspace(likelyUse?: string): boolean {
+  const k = (likelyUse ?? "").toLowerCase().trim().replace(/\s+/g, "-");
+  return (
+    k === "home" ||
+    k === "small-office" ||
+    k === "home-office" ||
+    k === "smalloffice" ||
+    k === "homeoffice"
+  );
+}
+
+/** Visible home-office seats: 1, or 2 if occupancy says so. */
+export function personalWorkspaceSeatCount(occupancy: number): number {
+  if (Number.isFinite(occupancy) && occupancy >= 2) return 2;
+  return 1;
 }
 
 export function areaSquareFeet(
@@ -48,15 +66,20 @@ export function heuristicSeatCountFromDims(
 }
 
 /**
- * Seats = max(visible occupancy, L×W area heuristic).
- * Rooms that are clearly small/medium by area never drop to huddle.
+ * Designer / conference seats.
+ * Home and small-office: huddle preset, ch=2 — never area/28 or the 12×14 → 6 rule.
+ * Conference / classroom: max(visible occupancy, L×W / 28); 12×12+ never drops to huddle.
  */
 export function effectiveDesignerSeatCount(input: {
   occupancy: number;
   width: number;
   length: number;
   unit: "feet" | "meters";
+  likelyUse?: string;
 }): number {
+  if (isPersonalWorkspace(input.likelyUse)) {
+    return 2;
+  }
   const areaSeats = heuristicSeatCountFromDims(input.width, input.length, input.unit);
   const visible =
     Number.isFinite(input.occupancy) && input.occupancy > 0

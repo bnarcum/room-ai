@@ -1,3 +1,5 @@
+import { isPersonalWorkspace } from "webex-designer-export";
+
 import { deriveCollabExportGeometry } from "@/lib/collabExportGeometry";
 import { coerceRoomAnalysisPayload } from "@/lib/coerceRoomAnalysis";
 import {
@@ -5,6 +7,8 @@ import {
   type RoomAnalysis,
 } from "@/lib/roomAnalysis";
 import { snapRoomTitle } from "@/lib/roomSizing";
+
+export const COLLAB_EXPERIENCE_URL = "https://collabexperience.com";
 
 /**
  * Video Room Calculator native save format (collabexperience.com / Ctrl+S).
@@ -133,7 +137,6 @@ function defaultRoomCalculationFields(unit: "feet" | "meters"): Pick<
 
 const LAYER0 = "0";
 const CHAIR_SPACING_FT = 2.35;
-const CHAIR_DEPTH_M = 0.65;
 
 function fromFeet(valueFt: number, unit: "feet" | "meters"): number {
   return unit === "meters" ? valueFt / FT_PER_M : valueFt;
@@ -162,6 +165,28 @@ function clampRect(
   return { x: round2(nx), y: round2(ny), width: round2(w), height: round2(h) };
 }
 
+function pushChair(
+  items: VrcCanvasItem[],
+  x: number,
+  y: number,
+  rotation: number,
+  roomWidth: number,
+  roomLength: number,
+): void {
+  if (x < 0.15 || y < 0.15 || x > roomWidth - 0.15 || y > roomLength - 0.15) {
+    return;
+  }
+  items.push({
+    x: round2(x),
+    y: round2(y),
+    rotation,
+    data_deviceid: "chair",
+    data_layerId: LAYER0,
+    id: crypto.randomUUID(),
+    name: "Chair",
+  });
+}
+
 function buildChairRow(params: {
   unit: "feet" | "meters";
   tableX: number;
@@ -171,6 +196,7 @@ function buildChairRow(params: {
   roomWidth: number;
   roomLength: number;
   seatCount: number;
+  sittingSideOnly: boolean;
 }): VrcCanvasItem[] {
   const {
     unit,
@@ -180,80 +206,78 @@ function buildChairRow(params: {
     tableLength,
     roomWidth,
     roomLength,
-    seatCount,
+    sittingSideOnly,
   } = params;
   const spacing = fromFeet(CHAIR_SPACING_FT, unit);
-  const depth = unit === "meters" ? CHAIR_DEPTH_M : CHAIR_DEPTH_M * FT_PER_M;
-  const gap = fromFeet(0.18, unit);
-  const perSide = Math.max(2, Math.ceil(seatCount / 2));
-  const rowLen = Math.min(tableLength, perSide * spacing);
+  const gap = fromFeet(0.32, unit);
+  const displayClearance = fromFeet(1.1, unit);
   const items: VrcCanvasItem[] = [];
+  const seatCount = sittingSideOnly
+    ? Math.min(2, Math.max(1, params.seatCount))
+    : Math.max(2, params.seatCount);
 
-  const left = clampRect(
-    tableX - depth - gap,
-    tableY,
-    depth,
-    rowLen,
-    roomWidth,
-    roomLength,
-  );
-  items.push({
-    ...left,
-    rotation: 0,
-    data_deviceid: "wallChairs",
-    data_chairSpacing: round2(spacing),
-    data_layerId: LAYER0,
-    id: crypto.randomUUID(),
-    name: "Row of Chairs",
-  });
-
-  const right = clampRect(
-    tableX + tableWidth + gap,
-    tableY,
-    depth,
-    rowLen,
-    roomWidth,
-    roomLength,
-  );
-  items.push({
-    ...right,
-    rotation: 180,
-    data_deviceid: "wallChairs",
-    data_chairSpacing: round2(spacing),
-    data_layerId: LAYER0,
-    id: crypto.randomUUID(),
-    name: "Row of Chairs",
-  });
-
-  const along = Math.max(2, Math.floor(tableLength / spacing));
-  const startY = tableY + spacing / 2 + (tableLength - along * spacing) / 2;
-  for (let i = 0; i < along; i++) {
-    const y = round2(startY + spacing * i);
-    if (y < 0 || y > roomLength) continue;
-    const leftX = round2(tableX - spacing / 2.5);
-    if (leftX >= 0 && leftX <= roomWidth) {
-      items.push({
-        x: leftX,
+  if (sittingSideOnly) {
+    const y = Math.min(
+      roomLength - 0.35,
+      Math.max(tableY + tableLength + gap, displayClearance),
+    );
+    if (seatCount === 1) {
+      pushChair(
+        items,
+        tableX + tableWidth / 2,
         y,
-        rotation: -90,
-        data_deviceid: "chair",
-        data_layerId: LAYER0,
-        id: crypto.randomUUID(),
-        name: "Chair",
-      });
-    }
-    const rightX = round2(tableX + tableWidth + spacing / 2.5);
-    if (rightX >= 0 && rightX <= roomWidth) {
-      items.push({
-        x: rightX,
+        180,
+        roomWidth,
+        roomLength,
+      );
+    } else {
+      const inset = Math.min(tableWidth * 0.28, fromFeet(0.85, unit));
+      pushChair(items, tableX + inset, y, 180, roomWidth, roomLength);
+      pushChair(
+        items,
+        tableX + tableWidth - inset,
         y,
-        rotation: 90,
-        data_deviceid: "chair",
-        data_layerId: LAYER0,
-        id: crypto.randomUUID(),
-        name: "Chair",
-      });
+        180,
+        roomWidth,
+        roomLength,
+      );
     }
+    return items;
+  }
+
+  const perSideLeft = Math.ceil(seatCount / 2);
+  const perSideRight = Math.floor(seatCount / 2);
+  const usable = Math.max(spacing * 0.5, tableLength - spacing * 0.25);
+
+  function alongY(count: number): number[] {
+    if (count <= 0) return [];
+    if (count === 1) return [tableY + tableLength / 2];
+    const span = Math.min(usable, (count - 1) * spacing);
+    const start = tableY + (tableLength - span) / 2;
+    return Array.from({ length: count }, (_, i) => start + (span / (count - 1)) * i);
+  }
+
+  for (const y of alongY(perSideLeft)) {
+    if (y < displayClearance) continue;
+    pushChair(
+      items,
+      tableX - gap,
+      y,
+      -90,
+      roomWidth,
+      roomLength,
+    );
+  }
+  for (const y of alongY(perSideRight)) {
+    if (y < displayClearance) continue;
+    pushChair(
+      items,
+      tableX + tableWidth + gap,
+      y,
+      90,
+      roomWidth,
+      roomLength,
+    );
   }
 
   return items;
@@ -274,6 +298,7 @@ function buildQuickSetupItems(params: {
   tvDiag: number;
   drpTvNum: number;
   seatCount: number;
+  sittingSideOnly: boolean;
 }): VrcCanvasItem[] {
   const {
     unit,
@@ -284,6 +309,7 @@ function buildQuickSetupItems(params: {
     tvDiag,
     drpTvNum,
     seatCount,
+    sittingSideOnly,
   } = params;
 
   const tableBox = clampRect(
@@ -326,7 +352,7 @@ function buildQuickSetupItems(params: {
     data_deviceid: displayId,
     data_layerId: LAYER0,
     id: crypto.randomUUID(),
-    name: "Single Display",
+    name: displayId === "displaySngl_2" ? "Single Display" : "Display",
   };
 
   const video: VrcCanvasItem = {
@@ -349,6 +375,7 @@ function buildQuickSetupItems(params: {
     roomWidth,
     roomLength,
     seatCount,
+    sittingSideOnly,
   });
 
   return [table, display, video, ...chairs];
@@ -414,6 +441,7 @@ export function buildVideoRoomCalculatorJson(
       tvDiag,
       drpTvNum,
       seatCount: geo.seatCount,
+      sittingSideOnly: isPersonalWorkspace(analysis.roomSummary.likelyUse),
     }),
     trNodes: [],
     workspace: {

@@ -11,8 +11,16 @@ import {
 } from "../src/lib/collabExperienceExport";
 import { coerceRoomAnalysisPayload } from "../src/lib/coerceRoomAnalysis";
 import { DEMO_TOUR_ANALYSIS } from "../src/lib/demoAnalysisFixture";
+import {
+  CISCO_GUIDANCE_URL,
+  parseRecommendationLine,
+} from "../src/lib/recommendationDisplay";
 import { roomAnalysisSchema, type RoomAnalysis } from "../src/lib/roomAnalysis";
-import { effectiveSeatCount } from "../src/lib/roomSizing";
+import {
+  designerSeatCount,
+  effectiveSeatCount,
+  resultsHeadline,
+} from "../src/lib/roomSizing";
 import { buildWebexDesignerSummaryUrl } from "../src/lib/webexDesignerQuickUrl";
 
 function must<T>(value: T | undefined, message: string): T {
@@ -59,6 +67,9 @@ if (geo.device.id !== "roomBarPro") {
 if (!designerUrl.includes("/mediumroom/") || !designerUrl.includes(`ch=${conferenceSeats}`)) {
   fail(`Unexpected Designer URL: ${designerUrl}`);
 }
+if (conferenceSeats !== designerSeatCount(conference)) {
+  fail("Conference headline seats should match Designer seats.");
+}
 
 const video = must(
   designer.customObjects.find((o) => o.objectType === "videoDevice"),
@@ -104,9 +115,13 @@ const huddleGeo = deriveCollabExportGeometry(huddle);
 const huddleVrc = buildVideoRoomCalculatorJson(huddle);
 const huddleDesigner = buildWebexDesignerRoomJson(huddle);
 const huddleSeats = effectiveSeatCount(huddle);
-const huddleUrl = buildWebexDesignerSummaryUrl(huddleSeats);
+const huddleUrl = buildWebexDesignerSummaryUrl(
+  designerSeatCount(huddle),
+  huddle.roomSummary.likelyUse,
+);
 
-if (huddleGeo.layoutKind !== "huddle") fail("4 seats should map to huddle.");
+if (huddleGeo.layoutKind !== "huddle") fail("small-office should map to huddle.");
+if (huddleSeats > 2) fail(`small-office occupancy 4 must cap at 2 seats, got ${huddleSeats}`);
 if (huddleGeo.device.id !== "roomBarPro") {
   fail(`Huddle VRC device should be Room Bar Pro, got ${huddleGeo.device.id}`);
 }
@@ -116,7 +131,7 @@ if (huddleVrc.room.tvDiag !== 43) {
 if (huddleVrc.room.tableWidth === 4 && huddleVrc.room.tableLength === 10) {
   fail("Huddle VRC should not use 4×10.");
 }
-if (huddleUrl !== "https://designer.webex.com/#/room/huddleroom/summary?1&rt=Huddle%20Room&ch=4") {
+if (huddleUrl !== "https://designer.webex.com/#/room/huddleroom/summary?1&rt=Huddle%20Room&ch=2") {
   fail(`Unexpected huddle Designer URL: ${huddleUrl}`);
 }
 const huddleVideo = must(
@@ -244,7 +259,7 @@ if (compactDesigner.title !== "SnapRoom — Conference") {
 
 const unknownUse = analysisFrom({
   ...compact,
-  roomSummary: { ...compact.roomSummary, likelyUse: "unknown" },
+  roomSummary: { ...compact.roomSummary, likelyUse: "unknown", occupancy: 0 },
 });
 const unknownVrc = buildVideoRoomCalculatorJson(unknownUse);
 const unknownDesigner = buildWebexDesignerRoomJson(unknownUse);
@@ -314,6 +329,231 @@ if (VIDEO_ROOM_CALC_FILE_VERSION !== "v0.1.671") {
   fail(`Pin VRC file version to v0.1.671, got ${VIDEO_ROOM_CALC_FILE_VERSION}`);
 }
 
+const office = analysisFrom({
+  dimensions: {
+    unit: "feet",
+    length: 10,
+    width: 12,
+    height: 10,
+    heightMin: 9.5,
+    heightMax: 10.5,
+    confidence: 0.62,
+  },
+  roomSummary: {
+    likelyUse: "home",
+    occupancy: 1,
+    primaryScreenDiagonalInches: 55,
+    screenCount: 3,
+  },
+  detectedReference: {
+    type: "chair",
+    notes: "Standing desk and one task chair.",
+  },
+  recommendations: {
+    camera: [
+      "Mount a USB camera at eye level. (see https://www.cisco.com/c/dam/en/us/td/docs/telepresence/endpoint/technical-papers/workspace-best-practices.pdf)",
+      "b",
+    ],
+    lighting: ["a", "b"],
+    acoustics: ["a", "b"],
+    display: [
+      "Keep one display 6–8 ft from the chair. [Cisco guidance](https://www.cisco.com/c/en/us/products/collaboration-endpoints/index.html)",
+      "b",
+    ],
+    seating: ["a", "b"],
+    cabling: ["a", "b"],
+    network: ["a", "b"],
+    power: ["a", "b"],
+  },
+  quickChecklist: ["a", "b", "c"],
+});
+
+const officeSeats = effectiveSeatCount(office);
+const officeDesignerSeats = designerSeatCount(office);
+const officeUrl = buildWebexDesignerSummaryUrl(
+  officeDesignerSeats,
+  office.roomSummary.likelyUse,
+);
+const officeGeo = deriveCollabExportGeometry(office);
+const officeVrc = buildVideoRoomCalculatorJson(office);
+const officeBuckets = vrcBuckets(officeVrc);
+const officeHeadline = resultsHeadline(office);
+
+if (office.roomSummary.likelyUse !== "home") {
+  fail(`Home fixture likelyUse should stay home, got ${office.roomSummary.likelyUse}`);
+}
+if (officeSeats !== 1) fail(`Home office occupancy 1 should be 1 seat, got ${officeSeats}`);
+if (officeDesignerSeats !== 2) {
+  fail(`Designer seats for home office should be 2, got ${officeDesignerSeats}`);
+}
+if (officeHeadline !== "Home office · 1 seat · 12 × 10 ft" && !officeHeadline.startsWith("Home office · 1 seat")) {
+  fail(`Unexpected home office headline: ${officeHeadline}`);
+}
+if (officeUrl !== "https://designer.webex.com/#/room/huddleroom/summary?1&rt=Huddle%20Room&ch=2") {
+  fail(`Home office Designer URL should be huddleroom ch=2, got ${officeUrl}`);
+}
+if (officeVrc.name !== "SnapRoom — Home office") {
+  fail(`Expected VRC name "SnapRoom — Home office", got "${officeVrc.name}"`);
+}
+if (office.dimensions.height > 9 || Number(officeVrc.room.roomHeight) > 9) {
+  fail(
+    `Home office height should cap at 9 ft, got analysis ${office.dimensions.height} VRC ${officeVrc.room.roomHeight}`,
+  );
+}
+if (officeGeo.layoutKind !== "huddle") fail("Home office layout should be huddle.");
+if (officeGeo.drpTvNum !== 1) fail(`Home office must force 1 display, got ${officeGeo.drpTvNum}`);
+if (officeGeo.device.id !== "roomBarPro") {
+  fail(`Home office VRC device should be roomBarPro, got ${officeGeo.device.id}`);
+}
+if (officeGeo.tableWidth < 3 || officeGeo.tableWidth > 3.5) {
+  fail(`Home office table width should be ~3–3.5 ft, got ${officeGeo.tableWidth}`);
+}
+if (officeGeo.tableLength < 4 || officeGeo.tableLength > 5) {
+  fail(`Home office table length should be ~4–5 ft, got ${officeGeo.tableLength}`);
+}
+if (
+  officeGeo.tableWidth >= officeVrc.room.roomWidth ||
+  officeGeo.tableLength >= officeVrc.room.roomLength
+) {
+  fail("Home office table must be smaller than the room.");
+}
+if (officeBuckets.displays.length !== 1) {
+  fail(`Home office should have exactly 1 display, got ${officeBuckets.displays.length}`);
+}
+if (officeBuckets.displays.some((d) => d.data_deviceid !== "displaySngl_2")) {
+  fail("Home office display must be displaySngl_2");
+}
+if (!officeBuckets.videoDevices.some((d) => d.data_deviceid === "roomBarPro")) {
+  fail("Home office VRC must include roomBarPro");
+}
+const officeChairs = officeBuckets.chairs.filter((c) => (c.data_deviceid ?? "") === "chair");
+const officeWallChairs = officeBuckets.chairs.filter((c) =>
+  (c.data_deviceid ?? "").startsWith("wallChairs"),
+);
+if (officeWallChairs.length > 0) fail("Home office must not emit wallChairs rows");
+if (officeChairs.length < 1 || officeChairs.length > 2) {
+  fail(`Home office chairs should be 1–2, got ${officeChairs.length}`);
+}
+const officeDisplay = officeBuckets.displays[0];
+for (const chair of officeChairs) {
+  if ((Number(chair.y) || 0) <= (Number(officeDisplay?.y) || 0) + 0.8) {
+    fail(`Office chair overlaps display wall: y=${chair.y} displayY=${officeDisplay?.y}`);
+  }
+  if (!itemInsideRoom(chair, officeVrc.room.roomWidth, officeVrc.room.roomLength, true)) {
+    fail(`Office chair outside room: x=${chair.x} y=${chair.y}`);
+  }
+}
+for (const table of officeBuckets.tables) {
+  if (!itemInsideRoom(table, officeVrc.room.roomWidth, officeVrc.room.roomLength, false)) {
+    fail(`Office table overflows room`);
+  }
+  if (Math.abs(Number(table.width) - officeVrc.room.tableWidth) > 0.05) {
+    fail("Office 2D table width must match the canvas item.");
+  }
+  if (Math.abs(Number(table.height) - officeVrc.room.tableLength) > 0.05) {
+    fail("Office 2D table length must match the canvas item.");
+  }
+}
+
+const officeAreaTrap = analysisFrom({
+  dimensions: {
+    unit: "feet",
+    length: 14,
+    width: 12,
+    height: 9,
+    confidence: 0.6,
+  },
+  roomSummary: {
+    likelyUse: "small-office",
+    occupancy: 1,
+    primaryScreenDiagonalInches: 55,
+    screenCount: 1,
+  },
+  detectedReference: { type: "chair", notes: "Home office in a 12×14 room." },
+  recommendations: {
+    camera: ["a", "b"],
+    lighting: ["a", "b"],
+    acoustics: ["a", "b"],
+    display: ["a", "b"],
+    seating: ["a", "b"],
+    cabling: ["a", "b"],
+    network: ["a", "b"],
+    power: ["a", "b"],
+  },
+  quickChecklist: ["a", "b", "c"],
+});
+if (effectiveSeatCount(officeAreaTrap) !== 1) {
+  fail(
+    `12×14 home/small-office occupancy 1 must stay 1 seat, got ${effectiveSeatCount(officeAreaTrap)}`,
+  );
+}
+const officeAreaUrl = buildWebexDesignerSummaryUrl(
+  designerSeatCount(officeAreaTrap),
+  officeAreaTrap.roomSummary.likelyUse,
+);
+if (!officeAreaUrl.includes("huddleroom") || !officeAreaUrl.includes("ch=2")) {
+  fail(`12×14 home office must open huddleroom ch=2, got ${officeAreaUrl}`);
+}
+
+const unknownOneChair = analysisFrom({
+  dimensions: {
+    unit: "feet",
+    length: 12,
+    width: 14,
+    height: 10,
+    confidence: 0.55,
+  },
+  roomSummary: {
+    likelyUse: "meeting room",
+    occupancy: 1,
+    primaryScreenDiagonalInches: 55,
+    screenCount: 2,
+  },
+  detectedReference: { type: "chair", notes: "One task chair." },
+  recommendations: {
+    camera: ["a", "b"],
+    lighting: ["a", "b"],
+    acoustics: ["a", "b"],
+    display: ["a", "b"],
+    seating: ["a", "b"],
+    cabling: ["a", "b"],
+    network: ["a", "b"],
+    power: ["a", "b"],
+  },
+  quickChecklist: ["a", "b", "c"],
+});
+if (unknownOneChair.roomSummary.likelyUse !== "home") {
+  fail(
+    `Unknown/meeting-room + 1 chair should resolve to home, got ${unknownOneChair.roomSummary.likelyUse}`,
+  );
+}
+if (effectiveSeatCount(unknownOneChair) !== 1) {
+  fail(
+    `Unknown 12×14 occupancy 1 must not use the 6-seat area rule, got ${effectiveSeatCount(unknownOneChair)}`,
+  );
+}
+
+const parsedDam = parseRecommendationLine(
+  "Mount a USB camera at eye level. (see https://www.cisco.com/c/dam/en/us/td/docs/telepresence/endpoint/technical-papers/workspace-best-practices.pdf)",
+);
+if (!parsedDam.href || parsedDam.href !== CISCO_GUIDANCE_URL) {
+  fail(`DAM PDF should rewrite to Cisco guidance URL, got ${parsedDam.href}`);
+}
+if (/https?:\/\//i.test(parsedDam.text) || /cisco\.com\/c\/dam/i.test(parsedDam.text)) {
+  fail(`Rec text still contains a raw URL: ${parsedDam.text}`);
+}
+if (parsedDam.text.length > 90) fail(`Rec text longer than 90 chars: ${parsedDam.text}`);
+
+const parsedMd = parseRecommendationLine(
+  "Keep one display 6–8 ft from the chair. [Cisco guidance](https://www.cisco.com/c/en/us/products/collaboration-endpoints/index.html)",
+);
+if (parsedMd.href !== CISCO_GUIDANCE_URL) {
+  fail(`Markdown Cisco link should survive, got ${parsedMd.href}`);
+}
+if (parsedMd.text.includes("http") || parsedMd.text.includes("Cisco guidance")) {
+  fail(`Markdown should strip from sentence: ${parsedMd.text}`);
+}
+
 console.log("OK: VRC and Designer exports follow the estimate");
 console.log(`  conference Designer URL: ${designerUrl}`);
 console.log(
@@ -323,5 +563,8 @@ console.log(
   `  huddle VRC: ${huddleGeo.tableWidth}×${huddleGeo.tableLength} ft, ${huddleGeo.tvDiag}", ${huddleGeo.device.label}`,
 );
 console.log(
-  `  12×14.5 occ 2 → ${compactSeats} seats, ${compactUrl}`,
+  `  12×14.5 occ 2 conference → ${compactSeats} seats, ${compactUrl}`,
+);
+console.log(
+  `  home office 12×10 occ 1 → ${officeSeats} seat, ${officeUrl}, table ${officeGeo.tableWidth}×${officeGeo.tableLength}`,
 );

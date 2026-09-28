@@ -11,6 +11,8 @@ export {
   clampDesignerSeatCount,
   effectiveDesignerSeatCount,
   heuristicSeatCountFromDims,
+  isPersonalWorkspace,
+  personalWorkspaceSeatCount,
   pickRoomLayoutKind,
   pickWebexRoomTier,
 } from "./roomTier";

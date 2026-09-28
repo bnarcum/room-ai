@@ -24,20 +24,42 @@ export function normalizeLikelyUse(raw: string): LikelyUseCategory {
   const k = raw.toLowerCase().trim().replace(/\s+/g, "-");
   const aliases: Record<string, LikelyUseCategory> = {
     home: "home",
-    "home-office": "small-office",
-    homeoffice: "small-office",
+    "home-office": "home",
+    homeoffice: "home",
+    "work-from-home": "home",
+    wfh: "home",
+    bedroom: "home",
+    residential: "home",
+    desk: "home",
+    "standing-desk": "home",
+    den: "home",
+    study: "home",
     "small-office": "small-office",
     smalloffice: "small-office",
     office: "small-office",
+    "private-office": "small-office",
     "personal-office": "small-office",
     workspace: "small-office",
-    den: "home",
-    study: "home",
+    huddle: "small-office",
+    "huddle-room": "small-office",
     conference: "conference",
+    "conference-room": "conference",
     classroom: "classroom",
     unknown: "unknown",
   };
   return aliases[k] ?? "unknown";
+}
+
+/** One visible chair + unknown type is a home office, not a 6-seat meeting room. */
+export function resolveLikelyUse(
+  raw: string,
+  occupancy: number,
+): LikelyUseCategory {
+  const use = normalizeLikelyUse(raw);
+  if (use === "unknown" && occupancy >= 1 && occupancy <= 2) {
+    return "home";
+  }
+  return use;
 }
 
 function normalizeDetectedReferenceType(raw: string): DetectedReferenceType {
@@ -129,12 +151,12 @@ export const roomAnalysisOutputSchema = z.object({
     likelyUse: z
       .string()
       .describe(
-        "Room category: home, small-office, conference, classroom, or unknown (home-office maps to small-office).",
+        "home or small-office for a home office, standing desk, consumer TV, or one chair. conference or classroom only for a dedicated multi-seat meeting room. unknown if truly unclear.",
       ),
     occupancy: z
       .number()
       .describe(
-        "Rough seating capacity if visible in the photo; use 0 if unknown (integer preferred)."
+        "Visible chairs only. Home office is 1 (or 2). Do not invent conference capacity from floor area.",
       ),
     primaryScreenDiagonalInches: z
       .number()
@@ -194,11 +216,15 @@ export const roomAnalysisSchema = roomAnalysisOutputSchema
     },
     roomSummary: {
       ...data.roomSummary,
-      likelyUse: normalizeLikelyUse(data.roomSummary.likelyUse),
       occupancy: (() => {
         const o = Number(data.roomSummary.occupancy);
         if (!Number.isFinite(o)) return 0;
         return Math.max(0, Math.round(o));
+      })(),
+      likelyUse: (() => {
+        const o = Number(data.roomSummary.occupancy);
+        const occ = Number.isFinite(o) ? Math.max(0, Math.round(o)) : 0;
+        return resolveLikelyUse(data.roomSummary.likelyUse, occ);
       })(),
       primaryScreenDiagonalInches: (() => {
         const n = Number(data.roomSummary.primaryScreenDiagonalInches);
@@ -330,6 +356,7 @@ export function buildWebexStyleRubric(): string {
     "Prefer specific recommendations (e.g. 'raise camera to eye level', 'add diffuse key light at 45°') over vague advice.",
     "When uncertain from a single photo, say what you can't see and propose a safe default.",
     "Populate observedItems from what is actually visible (laptops on tables, wall-mounted displays, potted plants, decor). When you mention those same items in recommendations or checklist, keep wording consistent.",
+    "Classify the room: standing desk, consumer TV, one task chair, or mixed bedroom/office furniture is home or small-office — never conference. A dedicated multi-chair meeting table facing a collaboration display is conference or classroom.",
     "",
     buildWebexDesignerResourcesRubricSection(),
   ].join("\n");

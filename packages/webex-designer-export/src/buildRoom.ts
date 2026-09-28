@@ -38,9 +38,9 @@ function titleFromLikelyUse(likelyUse: string): string {
   const raw = likelyUse.replace(/[/\\?%*:|"<>]/g, "-").trim().toLowerCase();
   switch (raw) {
     case "home":
-      return "Home";
     case "small-office":
-      return "Small office";
+    case "home-office":
+      return "Home office";
     case "conference":
       return "Conference";
     case "classroom":
@@ -316,6 +316,7 @@ export function buildWebexDesignerRoomJson(
     width: d.width,
     length: d.length,
     unit,
+    likelyUse: analysis.roomSummary.likelyUse,
   });
   const layoutKind = pickRoomLayoutKind(rawSeats);
   const minSeats = minSeatsForLayout(layoutKind);

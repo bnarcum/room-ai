@@ -9,6 +9,7 @@ export {
   clampDesignerSeatCount,
   effectiveDesignerSeatCount,
   heuristicSeatCountFromDims,
+  isPersonalWorkspace,
   pickRoomLayoutKind,
   pickWebexRoomTier,
   type RoomLayoutKind,
@@ -17,12 +18,23 @@ export {
 
 import {
   clampDesignerSeatCount,
+  isPersonalWorkspace,
   pickWebexRoomTier,
 } from "webex-designer-export";
 
-export function buildWebexDesignerSummaryUrl(seatCount: number): string {
-  const ch = clampDesignerSeatCount(seatCount);
-  const { pathSlug, roomTypeLabel } = pickWebexRoomTier(ch);
+export function buildWebexDesignerSummaryUrl(
+  seatCount: number,
+  likelyUse?: string,
+): string {
+  const ch = isPersonalWorkspace(likelyUse)
+    ? 2
+    : clampDesignerSeatCount(seatCount);
+  const { pathSlug, roomTypeLabel } = isPersonalWorkspace(likelyUse)
+    ? {
+        pathSlug: "huddleroom",
+        roomTypeLabel: "Huddle Room",
+      }
+    : pickWebexRoomTier(ch);
   const rt = encodeURIComponent(roomTypeLabel);
   return `https://designer.webex.com/#/room/${pathSlug}/summary?1&rt=${rt}&ch=${ch}`;
 }

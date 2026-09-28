@@ -1,0 +1,80 @@
+import { firstSentence } from "@/lib/roomSizing";
+
+export const CISCO_GUIDANCE_LABEL = "Cisco guidance";
+
+/** Public Cisco / Webex pages — never /c/dam PDF dumps. */
+export const CISCO_GUIDANCE_URL =
+  "https://www.cisco.com/c/en/us/products/collaboration-endpoints/index.html";
+
+const MARKDOWN_LINK = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi;
+const RAW_URL = /https?:\/\/[^\s)\]>'"]+/gi;
+const MAX_REC_CHARS = 90;
+
+const ALLOWED_HOSTS = new Set([
+  "www.cisco.com",
+  "cisco.com",
+  "webex.com",
+  "www.webex.com",
+  "help.webex.com",
+  "designer.webex.com",
+]);
+
+export type RecommendationLine = {
+  text: string;
+  href?: string;
+};
+
+export function sanitizeGuidanceUrl(raw: string): string | null {
+  const trimmed = raw.replace(/[.,;:]+$/g, "").trim();
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "https:") return null;
+  const host = parsed.hostname.toLowerCase();
+  if (!ALLOWED_HOSTS.has(host)) return null;
+  if (/\/c\/dam\//i.test(parsed.pathname)) return CISCO_GUIDANCE_URL;
+  return parsed.href;
+}
+
+function tightenRecText(text: string): string {
+  let t = text
+    .replace(/\s+/g, " ")
+    .replace(/\(\s*(see|see also)?\s*\)/gi, " ")
+    .replace(/\s+([,.;:])/g, "$1")
+    .replace(/[(\s]+see[.]\s*/gi, " ")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[\s—–-]+|[\s—–-]+$/g, "")
+    .trim();
+  t = firstSentence(t);
+  if (t.length > MAX_REC_CHARS) {
+    const cut = t.slice(0, MAX_REC_CHARS - 1);
+    t = `${cut.replace(/\s+\S*$/, "").replace(/[.,;: ]+$/, "")}…`;
+  }
+  return t;
+}
+
+export function parseRecommendationLine(raw: string): RecommendationLine {
+  let href: string | undefined;
+  let text = (raw ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return { text: "" };
+
+  text = text.replace(MARKDOWN_LINK, (_all, _label: string, url: string) => {
+    const clean = sanitizeGuidanceUrl(url);
+    if (clean && !href) href = clean;
+    return "";
+  });
+
+  text = text.replace(RAW_URL, (url) => {
+    const clean = sanitizeGuidanceUrl(url);
+    if (clean && !href) href = clean;
+    return "";
+  });
+
+  return {
+    text: tightenRecText(text),
+    ...(href ? { href } : {}),
+  };
+}

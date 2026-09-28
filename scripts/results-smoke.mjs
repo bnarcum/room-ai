@@ -63,7 +63,10 @@ const FIXTURE = {
       otherNotable: ["Long wood conference table"],
     },
     recommendations: {
-      camera: ["Keep cameras at eye height.", "Check backlight."],
+      camera: [
+        "Keep cameras at eye height. [Cisco guidance](https://www.cisco.com/c/en/us/products/collaboration-endpoints/index.html) https://www.cisco.com/c/dam/en/us/td/docs/telepresence/endpoint/technical-papers/workspace-best-practices.pdf",
+        "Check backlight.",
+      ],
       lighting: ["Add fill light.", "Dim overheads."],
       acoustics: ["Add absorption.", "Watch HVAC."],
       display: ["Confirm 75-inch legibility.", "Treat size as directional."],
@@ -138,6 +141,26 @@ async function main() {
     if (title === "Camera" && rec.includes("Check backlight")) {
       throw new Error("Recs should be first sentence only");
     }
+    if (rec.includes("cisco.com/c/dam") || rec.includes("https://www.cisco.com/c/dam")) {
+      throw new Error(`${title} rec still shows a raw /c/dam URL: ${rec}`);
+    }
+  }
+
+  const cameraLink = page.locator('[data-testid="rec-link-Camera"]');
+  if ((await cameraLink.count()) !== 1) {
+    throw new Error("Camera rec should render a Cisco guidance <a href>");
+  }
+  const cameraHref = await cameraLink.getAttribute("href");
+  if (cameraHref !== "https://www.cisco.com/c/en/us/products/collaboration-endpoints/index.html") {
+    throw new Error(`Camera guidance href was ${cameraHref}`);
+  }
+  if ((await cameraLink.textContent())?.trim() !== "Cisco guidance") {
+    throw new Error("Guidance link label should be Cisco guidance");
+  }
+
+  const collabLabel = await page.locator("#tour-collab-cta").textContent();
+  if (!collabLabel?.includes("Open Collab Experience")) {
+    throw new Error(`Missing Open Collab Experience action: ${collabLabel}`);
   }
 
   const designerHref = await page.locator("#tour-designer-cta").getAttribute("href");

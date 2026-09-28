@@ -11,18 +11,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SiteBrandLink } from "@/components/SiteBrand";
 import {
+  COLLAB_EXPERIENCE_URL,
   buildVideoRoomCalculatorJson,
   vrcJsonFileName,
 } from "@/lib/collabExperienceExport";
 import { coerceRoomAnalysisPayload } from "@/lib/coerceRoomAnalysis";
+import {
+  CISCO_GUIDANCE_LABEL,
+  parseRecommendationLine,
+} from "@/lib/recommendationDisplay";
 import {
   buildWebexDesignerRoomJson,
   webexDesignerJsonFileName,
 } from "webex-designer-export";
 import { roomAnalysisSchema, type RoomAnalysis } from "@/lib/roomAnalysis";
 import {
-  effectiveSeatCount,
-  firstSentence,
+  designerSeatCount,
   resultsHeadline,
 } from "@/lib/roomSizing";
 import {
@@ -103,9 +107,11 @@ export default function ResultsClient() {
   const meta = decoded && decoded.ok ? decoded.meta : null;
   const parseFailed = Boolean(decoded && decoded.ok && !analysis);
 
-  const seatCount = analysis ? effectiveSeatCount(analysis) : 0;
   const designerUrl = analysis
-    ? buildWebexDesignerSummaryUrl(seatCount)
+    ? buildWebexDesignerSummaryUrl(
+        designerSeatCount(analysis),
+        analysis.roomSummary.likelyUse,
+      )
     : null;
 
   const loading = !ready;
@@ -147,9 +153,12 @@ export default function ResultsClient() {
     a.download = vrcJsonFileName(vrc.name);
     a.click();
     URL.revokeObjectURL(url);
-    setExportTip(
-      "Downloaded .vrc.json — import on collabexperience.com (New → Open File).",
-    );
+    setExportTip("New → Open File, pick the download");
+  }
+
+  function onOpenCollabExperience() {
+    window.open(COLLAB_EXPERIENCE_URL, "_blank", "noopener,noreferrer");
+    onDownloadVrcJson();
   }
 
   function onDownloadWebexDesignerJson() {
@@ -258,21 +267,34 @@ export default function ResultsClient() {
                 id="tour-recommendations"
                 aria-label="Recommendations"
               >
-                <ul className="grid gap-3">
+                <ul className="grid gap-5">
                   {REC_ROWS.map(([title, key]) => {
-                    const line = firstSentence(
+                    const line = parseRecommendationLine(
                       analysis.recommendations[key][0] ?? "",
                     );
                     return (
                       <li
                         key={title}
-                        className="text-[15px] leading-snug text-[hsl(215_20%_82%)]"
+                        className="text-[15px] leading-relaxed text-[hsl(215_20%_82%)]"
                         data-testid={`rec-${title}`}
                       >
-                        <span className="font-semibold text-[hsl(277_90%_74%)]">
-                          {title}
-                        </span>
-                        {line ? ` — ${line}` : ""}
+                        <p className="m-0">
+                          <span className="font-semibold text-[hsl(277_90%_74%)]">
+                            {title}
+                          </span>
+                          {line.text ? ` — ${line.text}` : ""}
+                        </p>
+                        {line.href ? (
+                          <a
+                            href={line.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1 inline-block text-[13px] font-medium text-[hsl(173_85%_62%)] underline underline-offset-2"
+                            data-testid={`rec-link-${title}`}
+                          >
+                            {CISCO_GUIDANCE_LABEL}
+                          </a>
+                        ) : null}
                       </li>
                     );
                   })}
@@ -284,27 +306,31 @@ export default function ResultsClient() {
                 aria-label="Primary exports"
                 id="tour-exports"
               >
-                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <div className="flex flex-col gap-3 sm:flex-row">
                   {designerUrl ? (
                     <a
                       id="tour-designer-cta"
                       href={designerUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn-accent inline-flex items-center justify-center rounded-xl px-5 py-3 text-[15px] font-semibold"
+                      className="btn-accent inline-flex flex-1 items-center justify-center rounded-xl px-5 py-3 text-[15px] font-semibold"
                     >
                       Open Workspace Designer
                     </a>
                   ) : null}
                   <button
                     type="button"
-                    onClick={onDownloadVrcJson}
+                    id="tour-collab-cta"
+                    onClick={onOpenCollabExperience}
                     disabled={!canExportVrc}
-                    className="rounded-xl border border-[hsl(277_90%_55%/0.35)] bg-[hsl(277_50%_22%/0.35)] px-5 py-3 text-[15px] font-semibold text-[hsl(210_40%_98%)] transition-colors hover:border-[hsl(277_90%_65%/0.45)] hover:bg-[hsl(277_90%_65%/0.12)] disabled:cursor-not-allowed disabled:opacity-45"
+                    className="btn-accent inline-flex flex-1 items-center justify-center rounded-xl px-5 py-3 text-[15px] font-semibold disabled:cursor-not-allowed"
                   >
-                    Download for Collab Experience
+                    Open Collab Experience
                   </button>
                 </div>
+                <p className="copy-muted mt-3">
+                  New → Open File, pick the download
+                </p>
 
                 {exportTip ? (
                   <p

@@ -1,4 +1,4 @@
-import type { RoomLayoutKind } from "webex-designer-export";
+import { isPersonalWorkspace, type RoomLayoutKind } from "webex-designer-export";
 
 import type { RoomAnalysis } from "@/lib/roomAnalysis";
 import {
@@ -50,6 +50,7 @@ export function deriveCollabExportGeometry(
 ): CollabExportGeometry {
   const d = analysis.dimensions;
   const unit = d.unit === "meters" ? "meters" : "feet";
+  const personal = isPersonalWorkspace(analysis.roomSummary.likelyUse);
   const seatCount = effectiveSeatCount(analysis);
   const layoutKind = layoutKindFromAnalysis(analysis);
   const device = pickCollabVideoDevice(layoutKind);
@@ -63,13 +64,21 @@ export function deriveCollabExportGeometry(
   const roomLengthFt = Math.max(toFeet(d.length, unit), 6);
 
   const frntWallToTvFt = layoutKind === "huddle" ? 0.4 : 0.5;
-  const rearAisleFt = layoutKind === "huddle" ? 2.2 : 3;
-  const minDisplayGapFt =
-    layoutKind === "huddle" ? 2.4 : layoutKind === "small" ? 3 : 3.5;
+  const rearAisleFt = personal ? 2.4 : layoutKind === "huddle" ? 2.2 : 3;
+  const minDisplayGapFt = personal
+    ? 2.6
+    : layoutKind === "huddle"
+      ? 2.4
+      : layoutKind === "small"
+        ? 3
+        : 3.5;
 
   let tableWidthFt: number;
   let tableLengthFt: number;
-  if (layoutKind === "huddle") {
+  if (personal) {
+    tableWidthFt = Math.min(3.5, Math.max(3, roomWidthFt * 0.28));
+    tableLengthFt = Math.min(5, Math.max(4, roomLengthFt * 0.36));
+  } else if (layoutKind === "huddle") {
     tableWidthFt = Math.min(3.4, roomWidthFt * 0.42);
     tableLengthFt = Math.min(5, Math.max(3.2, seatCount * 1.1));
   } else if (layoutKind === "small") {
@@ -106,7 +115,9 @@ export function deriveCollabExportGeometry(
     device,
     distDisplayToTable: round2(fromFeet(distDisplayToTableFt, unit)),
     frntWallToTv: round2(fromFeet(frntWallToTvFt, unit)),
-    drpTvNum: Math.max(1, Math.min(3, analysis.roomSummary.screenCount || 1)),
+    drpTvNum: personal
+      ? 1
+      : Math.max(1, Math.min(3, analysis.roomSummary.screenCount || 1)),
     layoutKind,
     seatCount,
   };

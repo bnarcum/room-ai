@@ -12,9 +12,9 @@ export type RoomDimensionsInput = {
 };
 
 export type RoomSummaryInput = {
-  /** e.g. conference | home — used in the room title only */
+  /** home / small-office drive huddle + 1–2 seats; conference / classroom use area seats */
   likelyUse: string;
-  /** Hint for chair count (clamped in the builder) */
+  /** Visible chairs; home office is 1–2, never an area-derived boardroom count */
   occupancy: number;
   /** Best-effort primary display diagonal; used instead of a boardroom default. */
   primaryScreenDiagonalInches?: number;

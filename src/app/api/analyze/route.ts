@@ -206,11 +206,18 @@ export async function POST(request: Request) {
         "If the estimate is uncertain, widen the ranges, lower confidence, and explain why.",
         "Then provide practical improvement suggestions aligned to a Webex-style room design rubric.",
         "",
+        "Room type (likelyUse) — this drives seating. Get it right:",
+        "- home or small-office: standing desk, consumer TV on a dresser/console, one task chair, laptop-only workspace, bedroom/office mix. occupancy = visible chairs (usually 1, max 2). Typical height 8–9 ft, not 10.",
+        "- conference or classroom: dedicated meeting table with several chairs facing a collaboration display. occupancy = visible chairs, not floor-area capacity.",
+        "- Standing desk + consumer TV + one chair is home or small-office. Never label that a conference or meeting room.",
+        "",
         "Recommendations discipline:",
         "- Prioritize five photo-grounded categories: camera, display, acoustics (audio), lighting, network. Still fill seating, cabling, and power.",
         "- Every recommendations.* array must contain at least two distinct, specific strings.",
+        "- Each string is ONE short sentence (max ~90 characters). Do not paste raw URLs into the sentence.",
+        "- If you cite Cisco or Webex guidance, append markdown only: [Cisco guidance](https://www.cisco.com/c/en/us/products/collaboration-endpoints/index.html).",
         "- Ground advice in what is visible in the photo or render; where visibility is limited, say so and suggest a safe default.",
-        "- Tie bullets to the official Workspace Designer Resources links and Cisco PDF in the rubric where relevant (use exact URLs from that list). Do not repeat one generic sentence across every category.",
+        "- Do not repeat one generic sentence across every category.",
         "",
         rubric,
         "",
@@ -226,7 +233,7 @@ export async function POST(request: Request) {
     isWorkspaceDesignerRender ? WORKSPACE_DESIGNER_RENDER_USER_FOOTER : null,
     isWorkspaceDesignerRender
       ? "Task: Evaluate this Workspace Designer render for hybrid-meeting readiness; estimate dimension ranges from depicted geometry and scale cues; fill observedItems with every visible collaboration-relevant object (displays, codecs/bars, cameras, seating, laptops, plants, decor). Name items consistently when you reference them in recommendations or quickChecklist."
-      : "Task: Estimate directional length/width/height ranges plus midpoints. Fill observedItems from the photo. Estimate primaryScreenDiagonalInches and seat occupancy. Ground camera, display, audio, lighting, and network recommendations in what is visible.",
+      : "Task: Estimate directional length/width/height ranges plus midpoints. Classify home/small-office vs conference from furniture (standing desk + consumer TV + one chair = home or small-office). occupancy is visible chairs only. Fill observedItems from the photo. Estimate primaryScreenDiagonalInches. Write short camera, display, audio, lighting, and network recommendations with optional [Cisco guidance](url) markdown — no raw URLs.",
   ]
     .filter(Boolean)
     .join("\n");

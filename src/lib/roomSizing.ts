@@ -1,9 +1,13 @@
 import {
   effectiveDesignerSeatCount,
   heuristicSeatCountFromDims as sharedHeuristicSeatCountFromDims,
+  isPersonalWorkspace,
+  personalWorkspaceSeatCount,
   pickRoomLayoutKind,
   type RoomLayoutKind,
 } from "webex-designer-export";
+
+export { isPersonalWorkspace, personalWorkspaceSeatCount };
 
 import type { RoomAnalysis } from "@/lib/roomAnalysis";
 
@@ -56,9 +60,8 @@ export function formatDirectionalSize(analysis: RoomAnalysis): string {
 export function likelyUseHeadline(likelyUse: string): string {
   switch (likelyUse) {
     case "home":
-      return "Home";
     case "small-office":
-      return "Small office";
+      return "Home office";
     case "conference":
       return "Conference";
     case "classroom":
@@ -73,18 +76,7 @@ export function snapRoomTitle(likelyUse: string): string {
 }
 
 export function likelyUseLabel(likelyUse: string): string {
-  switch (likelyUse) {
-    case "home":
-      return "Home";
-    case "small-office":
-      return "Small office";
-    case "conference":
-      return "Conference";
-    case "classroom":
-      return "Classroom";
-    default:
-      return "Meeting room";
-  }
+  return likelyUseHeadline(likelyUse);
 }
 
 export function firstSentence(text: string): string {
@@ -108,7 +100,9 @@ export function formatPlanSize(analysis: RoomAnalysis): string {
 }
 
 export function resultsHeadline(analysis: RoomAnalysis): string {
-  return `${likelyUseHeadline(analysis.roomSummary.likelyUse)} · ${effectiveSeatCount(analysis)} seats · ${formatPlanSize(analysis)}`;
+  const seats = effectiveSeatCount(analysis);
+  const seatWord = seats === 1 ? "seat" : "seats";
+  return `${likelyUseHeadline(analysis.roomSummary.likelyUse)} · ${seats} ${seatWord} · ${formatPlanSize(analysis)}`;
 }
 
 export function layoutKindLabel(kind: RoomLayoutKind): string {
@@ -136,16 +130,58 @@ export function heuristicSeatCountFromDims(
 
 export function effectiveSeatCount(analysis: RoomAnalysis): number {
   const d = analysis.dimensions;
+  const likelyUse = analysis.roomSummary.likelyUse;
+  if (isPersonalWorkspace(likelyUse)) {
+    return personalWorkspaceSeatCount(analysis.roomSummary.occupancy);
+  }
   return effectiveDesignerSeatCount({
     occupancy: analysis.roomSummary.occupancy,
     width: d.width,
     length: d.length,
     unit: d.unit,
+    likelyUse,
+  });
+}
+
+/** Workspace Designer deep-link chair count (huddle ch=2 for home / small-office). */
+export function designerSeatCount(analysis: RoomAnalysis): number {
+  const d = analysis.dimensions;
+  return effectiveDesignerSeatCount({
+    occupancy: analysis.roomSummary.occupancy,
+    width: d.width,
+    length: d.length,
+    unit: d.unit,
+    likelyUse: analysis.roomSummary.likelyUse,
   });
 }
 
 export function layoutKindFromAnalysis(analysis: RoomAnalysis): RoomLayoutKind {
-  return pickRoomLayoutKind(effectiveSeatCount(analysis));
+  if (isPersonalWorkspace(analysis.roomSummary.likelyUse)) {
+    return "huddle";
+  }
+  return pickRoomLayoutKind(designerSeatCount(analysis));
+}
+
+/** Home / small-office ceilings stay ~8–9 ft even if the model said 10. */
+export function capPersonalWorkspaceHeight(
+  unit: "feet" | "meters",
+  mid: number,
+  min: number,
+  max: number,
+): { mid: number; min: number; max: number } {
+  const cap = unit === "meters" ? 2.74 : 9;
+  const floor = unit === "meters" ? 2.44 : 8;
+  if (!(max > cap) && !(mid > cap)) {
+    return { mid, min, max };
+  }
+  const nextMax = Math.min(max, cap);
+  let nextMin = Math.min(min, nextMax);
+  if (nextMin > cap) nextMin = floor;
+  let nextMid = Math.min(mid, cap);
+  if (nextMid < nextMin || nextMid > nextMax) {
+    nextMid = midpointFromRange(nextMin, nextMax);
+  }
+  return { mid: nextMid, min: nextMin, max: nextMax };
 }
 
 export function inferScreenDiagonalInches(analysis: {

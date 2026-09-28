@@ -1,4 +1,11 @@
-import { midpointFromRange, rangeFromMidpoint } from "./roomSizing";
+import { isPersonalWorkspace } from "webex-designer-export";
+
+import { resolveLikelyUse } from "./roomAnalysis";
+import {
+  capPersonalWorkspaceHeight,
+  midpointFromRange,
+  rangeFromMidpoint,
+} from "./roomSizing";
 import { RECOMMENDATION_CATEGORY_FALLBACKS } from "./webexDesignerResources";
 
 const PAD_CHECK = "Confirm network drops, power, and cable paths for your gear.";
@@ -100,12 +107,22 @@ export function coerceRoomAnalysisPayload(raw: unknown): unknown {
       : {};
 
   const confidence = Math.min(1, Math.max(0, num(dims.confidence, 0.45)));
+  const unit = unitOf(dims.unit);
   const length = axisWithRange(dims.length, dims.lengthMin, dims.lengthMax, 14, confidence);
   const width = axisWithRange(dims.width, dims.widthMin, dims.widthMax, 12, confidence);
-  const height = axisWithRange(dims.height, dims.heightMin, dims.heightMax, 9, confidence);
+  let height = axisWithRange(dims.height, dims.heightMin, dims.heightMax, 9, confidence);
+
+  const rsIn = base.roomSummary;
+  const rsPeek =
+    rsIn && typeof rsIn === "object" ? (rsIn as Record<string, unknown>) : {};
+  const occupancyPeek = Math.max(0, Math.round(num(rsPeek.occupancy, 0)));
+  const likelyUsePeek = resolveLikelyUse(str(rsPeek.likelyUse, "unknown"), occupancyPeek);
+  if (isPersonalWorkspace(likelyUsePeek)) {
+    height = capPersonalWorkspaceHeight(unit, height.mid, height.min, height.max);
+  }
 
   base.dimensions = {
-    unit: unitOf(dims.unit),
+    unit,
     length: length.mid,
     width: width.mid,
     height: height.mid,
@@ -135,7 +152,6 @@ export function coerceRoomAnalysisPayload(raw: unknown): unknown {
     ),
   };
 
-  const rsIn = base.roomSummary;
   const rs =
     rsIn && typeof rsIn === "object"
       ? (rsIn as Record<string, unknown>)
@@ -143,10 +159,11 @@ export function coerceRoomAnalysisPayload(raw: unknown): unknown {
   const span = Math.max(length.mid, width.mid);
   const inferredScreen =
     span >= 28 ? 85 : span >= 22 ? 75 : span >= 16 ? 65 : span >= 12 ? 55 : 43;
+  const occupancy = Math.max(0, Math.round(num(rs.occupancy, 0)));
 
   base.roomSummary = {
-    likelyUse: str(rs.likelyUse, "unknown"),
-    occupancy: Math.max(0, Math.round(num(rs.occupancy, 0))),
+    likelyUse: resolveLikelyUse(str(rs.likelyUse, "unknown"), occupancy),
+    occupancy,
     primaryScreenDiagonalInches: Math.max(
       32,
       Math.min(120, Math.round(num(rs.primaryScreenDiagonalInches, inferredScreen))),

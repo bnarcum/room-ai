@@ -51,9 +51,9 @@ export const WEBEX_DESIGNER_INTRO_RESOURCES: readonly WebexDesignerResourceLink[
     note: "Official feedback channel for Workspace Designer (vendor roadmap).",
   },
   {
-    title: "Workspace Design: Best Practices Guide (PDF)",
-    url: "https://www.cisco.com/c/dam/en/us/td/docs/telepresence/endpoint/technical-papers/workspace-best-practices.pdf",
-    note: "Cisco technical paper — primary written standard for layout, AV, and collaboration room practice.",
+    title: "Cisco collaboration endpoints",
+    url: "https://www.cisco.com/c/en/us/products/collaboration-endpoints/index.html",
+    note: "Cisco collaboration endpoints — camera, display, and room-device guidance.",
   },
 ] as const;
 
@@ -66,36 +66,36 @@ export const WEBEX_DESIGNER_INTRO_RESOURCES: readonly WebexDesignerResourceLink[
  */
 export const RECOMMENDATION_CATEGORY_FALLBACKS = {
   camera: [
-    "Place the primary meeting camera near eye level for seated participants and aim it to include both the main display and the primary seating arc (Webex Workspace Designer hub: https://designer.webex.com/#/article/Intro).",
-    "Avoid having bright windows directly behind active speakers relative to the camera; add diffusion or reposition seating so faces stay evenly lit (Cisco Workspace Design Best Practices PDF: https://www.cisco.com/c/dam/en/us/td/docs/telepresence/endpoint/technical-papers/workspace-best-practices.pdf).",
+    "Mount the camera at seated eye level, aimed at the primary seat. [Cisco guidance](https://www.cisco.com/c/en/us/products/collaboration-endpoints/index.html)",
+    "Keep bright windows out of the camera-facing background.",
   ],
   lighting: [
-    "Add soft, diffuse frontal light on participant faces for video quality; balance ambient light with task lighting at the table (Workspace Design Best Practices PDF: https://www.cisco.com/c/dam/en/us/td/docs/telepresence/endpoint/technical-papers/workspace-best-practices.pdf).",
-    "Reduce glare on displays from overhead fixtures or daylight by tilting blinds or adjusting fixture aim (Photorealistic renders: https://designer.webex.com/#/article/PhotoRealisticRenders).",
+    "Add soft frontal light so faces stay even on camera. [Cisco guidance](https://www.cisco.com/c/en/us/products/collaboration-endpoints/index.html)",
+    "Cut glare on the display from overheads or daylight.",
   ],
   acoustics: [
-    "Treat hard parallel walls or large glass with absorption (panels, drapes, rugs) where speech echo or HVAC noise competes with remote audio (Workspace Best Practices PDF above).",
-    "Keep noisy HVAC vents away from microphones and seating when possible; note ceiling height impact on reverberation (Introduction to Designer scales: https://designer.webex.com/#/article/Intro).",
+    "Add absorption on the hard wall behind the chair to tame echo. [Cisco guidance](https://www.cisco.com/c/en/us/products/collaboration-endpoints/index.html)",
+    "Keep HVAC noise away from the microphone path.",
   ],
   display: [
-    "Size and mount the main collaboration display so text is legible from the farthest planned seat; align eye line from seated height (Webex Workspaces inspiration: https://webex.com/workspaces).",
-    "Route HDMI/USB-C paths so presenters can connect without crossing walkways; label inputs for hybrid guests (Custom rooms / integration context: https://designer.webex.com/#/article/CustomRooms).",
+    "Keep one display at seated eye line, 6–8 ft from the chair. [Cisco guidance](https://webex.com/workspaces)",
+    "Use the wall display for content; keep the desk monitor for local work.",
   ],
   seating: [
-    "Arrange seating within comfortable viewing angles to the display and camera; leave clearance behind chairs for egress (Workspace Best Practices PDF).",
-    "Match chair count and table length to typical meeting size for the room to avoid crowding or unused depth (Webex Workspaces: https://webex.com/workspaces).",
+    "One chair facing the camera and display; leave aisle behind it.",
+    "Skip extra seats that the camera cannot frame.",
   ],
   cabling: [
-    "Use floor cores or perimeter raceways so presentation cables reach the table without trip hazards (Workspace Best Practices PDF).",
-    "Plan redundant paths for codec, camera, and touch-controller cables with service loops for furniture moves (Designer overview: https://designer.webex.com/#/article/Intro).",
+    "Route HDMI and USB along the desk edge, not across the aisle.",
+    "Label the display input the laptop uses.",
   ],
   network: [
-    "Provide wired Ethernet drops at the table for codec or Room Bar stability; reserve bandwidth for HD video uplink and screen share (Workspace Best Practices PDF).",
-    "Document VLAN or QoS policy for collaboration traffic if Wi‑Fi backup is used for laptops (Webex Workspaces planning: https://webex.com/workspaces).",
+    "Check Wi-Fi at the desk; prefer a wired drop for the room device. [Cisco guidance](https://webex.com/workspaces)",
+    "Keep 5 GHz in line of sight of the access point.",
   ],
   power: [
-    "Confirm sufficient circuits for displays, compute, and furniture-mounted outlets without daisy-chaining consumer strips (Workspace Best Practices PDF).",
-    "Place outlets along the table edge or base for laptops and USB-C docks; align with cable routing to avoid cords across walkways (Designer Introduction: https://designer.webex.com/#/article/Intro).",
+    "Put laptop power at the desk edge so cords stay off the floor.",
+    "Avoid daisy-chained strips for the display and compute.",
   ],
 } as const;
 
@@ -111,8 +111,9 @@ export function buildWebexDesignerResourcesRubricSection(): string {
     ...lines,
     "",
     "Instructions:",
-    "- Map each recommendation you give to the most relevant resource(s) above when applicable (layout, displays, cabling, acoustics, scheduling, certification, photorealistic workflow, API automation, or Cisco best-practices PDF).",
-    "- Where helpful, end a recommendation string with a parenthetical citation using the exact URL, e.g. (see https://webex.com/workspaces). Use at least **three distinct URLs** from the list across the full recommendations + checklist when any link applies.",
+    "- Each recommendation is ONE short sentence (max ~90 characters). No raw URLs in the sentence.",
+    "- If you cite a Cisco or Webex doc, append a markdown link only: [Cisco guidance](https://www.cisco.com/c/en/us/products/collaboration-endpoints/index.html).",
+    "- Use only https://www.cisco.com/c/en/..., https://webex.com/..., https://help.webex.com/..., or https://designer.webex.com/... — never /c/dam/ paths.",
     "- Do not invent URLs; only use links from the list above.",
   ].join("\n");
 }
