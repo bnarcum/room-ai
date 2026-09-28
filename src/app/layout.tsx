@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: "%s | SnapRoom",
   },
   description:
-    "Snap a room photo — get size estimates, collaboration tips, and exports for Collab Experience and Webex Workspace Designer.",
+    "Snap a room photo — get a room read, directional size ranges, five recs, and exports for Collab Experience and Webex Workspace Designer.",
 };
 
 export default function RootLayout({

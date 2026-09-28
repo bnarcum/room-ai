@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "smoke:vision": "tsx scripts/smoke-vision.ts",
-    "smoke:tour": "node scripts/tour-smoke.mjs"
+    "smoke:tour": "node scripts/tour-smoke.mjs",
+    "smoke:results": "node scripts/results-smoke.mjs",
+    "verify:exports": "tsx scripts/verify-exports.ts"
   },
   "dependencies": {
     "next": "16.2.4",

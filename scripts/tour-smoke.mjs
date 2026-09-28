@@ -16,6 +16,7 @@ function loadPlaywright() {
     resolve(here, "../node_modules/playwright"),
     resolve(here, "../../pw-export-test/node_modules/playwright"),
     "/Users/bnarcum/Desktop/Cursor Skunkworks/pw-export-test/node_modules/playwright",
+    "/Users/bnarcum/Projects/Cursor Skunkworks/pw-export-test/node_modules/playwright",
   ];
   for (const id of candidates) {
     try {
@@ -36,7 +37,7 @@ async function main() {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 
-  await page.goto(`${baseUrl}/?tour=1`, { waitUntil: "networkidle" });
+  await page.goto(`${baseUrl}/?tour=1`, { waitUntil: "domcontentloaded" });
 
   await page.waitForSelector('[role="dialog"]', { timeout: 10_000 });
 
@@ -76,7 +77,25 @@ async function main() {
     throw new Error(`After demo results, expected step 6, got "${finalLabel}"`);
   }
 
+  await page.waitForSelector("#tour-room-read", { timeout: 10_000 });
   await page.waitForSelector("#tour-dimensions", { timeout: 10_000 });
+  await page.waitForSelector("#tour-recommendations", { timeout: 5_000 });
+  await page.waitForSelector("#tour-exports", { timeout: 5_000 });
+
+  const tops = await page.evaluate(() => {
+    const ids = [
+      "tour-room-read",
+      "tour-dimensions",
+      "tour-recommendations",
+      "tour-exports",
+    ];
+    return ids.map((id) => document.getElementById(id)?.getBoundingClientRect().top ?? -1);
+  });
+  for (let i = 1; i < tops.length; i++) {
+    if (tops[i] < tops[i - 1]) {
+      throw new Error("Results sections are not in room-read → size → recs → exports order");
+    }
+  }
 
   const overlay =
     (await page.locator(".demo-tour-backdrop.is-visible").count()) +

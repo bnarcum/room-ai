@@ -1,3 +1,4 @@
+import { midpointFromRange, rangeFromMidpoint } from "./roomSizing";
 import { RECOMMENDATION_CATEGORY_FALLBACKS } from "./webexDesignerResources";
 
 const PAD_CHECK = "Confirm network drops, power, and cable paths for your gear.";
@@ -47,6 +48,33 @@ function nonEmptyRecommendationStrings(v: unknown): string[] {
 }
 
 /** Like stringArray but allows truly empty lists (no pad) for optional inventories. */
+function axisWithRange(
+  midRaw: unknown,
+  minRaw: unknown,
+  maxRaw: unknown,
+  fallbackMid: number,
+  confidence: number,
+): { mid: number; min: number; max: number } {
+  let mid = num(midRaw, Number.NaN);
+  let min = num(minRaw, Number.NaN);
+  let max = num(maxRaw, Number.NaN);
+  if (!Number.isFinite(mid)) {
+    mid =
+      Number.isFinite(min) && Number.isFinite(max)
+        ? midpointFromRange(min, max)
+        : fallbackMid;
+  }
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
+    const synthesized = rangeFromMidpoint(mid, confidence);
+    min = synthesized.min;
+    max = synthesized.max;
+  }
+  if (mid < min || mid > max) {
+    mid = midpointFromRange(min, max);
+  }
+  return { mid, min, max };
+}
+
 function stringArrayOptional(v: unknown): string[] {
   if (!Array.isArray(v)) {
     return typeof v === "string" && v.trim() ? [v.trim()] : [];
@@ -71,15 +99,26 @@ export function coerceRoomAnalysisPayload(raw: unknown): unknown {
       ? (dimsIn as Record<string, unknown>)
       : {};
 
+  const confidence = Math.min(1, Math.max(0, num(dims.confidence, 0.45)));
+  const length = axisWithRange(dims.length, dims.lengthMin, dims.lengthMax, 14, confidence);
+  const width = axisWithRange(dims.width, dims.widthMin, dims.widthMax, 12, confidence);
+  const height = axisWithRange(dims.height, dims.heightMin, dims.heightMax, 9, confidence);
+
   base.dimensions = {
     unit: unitOf(dims.unit),
-    length: num(dims.length, 14),
-    width: num(dims.width, 12),
-    height: num(dims.height, 9),
-    confidence: Math.min(1, Math.max(0, num(dims.confidence, 0.45))),
+    length: length.mid,
+    width: width.mid,
+    height: height.mid,
+    lengthMin: length.min,
+    lengthMax: length.max,
+    widthMin: width.min,
+    widthMax: width.max,
+    heightMin: height.min,
+    heightMax: height.max,
+    confidence,
     reasoning: str(
       dims.reasoning,
-      "Rough estimate from a single perspective; limited visibility of full room geometry.",
+      "Directional range from a single photo; scaled from door, table, chair, or ceiling cues when visible.",
     ),
   };
 
@@ -101,9 +140,18 @@ export function coerceRoomAnalysisPayload(raw: unknown): unknown {
     rsIn && typeof rsIn === "object"
       ? (rsIn as Record<string, unknown>)
       : {};
+  const span = Math.max(length.mid, width.mid);
+  const inferredScreen =
+    span >= 28 ? 85 : span >= 22 ? 75 : span >= 16 ? 65 : span >= 12 ? 55 : 43;
+
   base.roomSummary = {
     likelyUse: str(rs.likelyUse, "unknown"),
     occupancy: Math.max(0, Math.round(num(rs.occupancy, 0))),
+    primaryScreenDiagonalInches: Math.max(
+      32,
+      Math.min(120, Math.round(num(rs.primaryScreenDiagonalInches, inferredScreen))),
+    ),
+    screenCount: Math.max(0, Math.min(8, Math.round(num(rs.screenCount, 0)))),
     keyConstraints: stringArray(rs.keyConstraints, PAD_CONSTRAINT),
   };
 

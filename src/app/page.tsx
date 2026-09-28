@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import Link from "next/link";
 import { SiteBrandLink } from "@/components/SiteBrand";
 import {
   DEMO_TOUR_ROOM_PHOTO,
@@ -84,37 +83,10 @@ export default function Home() {
               Room insights from a single photo
             </h1>
             <p className="copy-readable max-w-[52ch]">
-              Upload a single photo of a room. You’ll get a rough estimate of
-              length, width, and height plus improvement suggestions for camera
-              placement, lighting, acoustics, display, seating, cabling, network,
-              and power.
-            </p>
-            <p className="copy-muted mt-3 max-w-[52ch] text-[14px] leading-relaxed">
-              When the run finishes, open{" "}
-              <strong className="font-medium text-[hsl(215_20%_88%)]">Results</strong>{" "}
-              for one-click exports to{" "}
-              <span className="whitespace-nowrap">Collab Experience</span> (
-              <code className="rounded border border-[hsl(217_33%_28%)] bg-[hsl(217_33%_18%/0.85)] px-1 py-0.5 font-mono text-[11px]">
-                .vrc.json
-              </code>
-              ) and{" "}
-              <span className="whitespace-nowrap">Webex Workspace Designer</span>.
-            </p>
-            <p className="mt-2 text-[14px] text-[hsl(215_20%_70%)]">
-              Prefer a walkthrough?{" "}
-              <Link
-                href="/wizard"
-                className="font-medium text-[hsl(277_90%_78%)] underline decoration-[hsl(277_90%_50%/0.4)] underline-offset-2 transition-colors hover:text-[hsl(210_40%_96%)] hover:decoration-[hsl(277_90%_65%/0.55)]"
-              >
-                Open the guided wizard
-              </Link>
-              . Fast path to Workspace Designer:{" "}
-              <Link
-                href="/quick-estimate"
-                className="font-medium text-[hsl(277_90%_78%)] underline decoration-[hsl(277_90%_50%/0.4)] underline-offset-2 transition-colors hover:text-[hsl(210_40%_96%)] hover:decoration-[hsl(277_90%_65%/0.55)]"
-              >
-                Quick Estimate
-              </Link>
+              Upload one photo. SnapRoom reads the room, gives directional size
+              ranges, and recommends camera, display, audio, lighting, and
+              network — then opens Workspace Designer or downloads Collab
+              Experience.
             </p>
           </div>
 

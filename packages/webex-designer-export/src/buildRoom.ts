@@ -1,3 +1,4 @@
+import { pickRoomLayoutKind, type RoomLayoutKind } from "./roomTier";
 import type {
   BuildWebexDesignerRoomOptions,
   RoomAnalysisForWebex,
@@ -19,7 +20,7 @@ const CHAIR_RING_PAD_M = 0.38;
 /** Chair centers must stay inside the floor polygon by at least this margin (m). */
 const WALL_CLEARANCE_M = 0.42;
 const MAX_SEATS = 24;
-const MIN_SEATS = 4;
+const MIN_SEATS = 2;
 
 function round3(n: number): number {
   return Math.round(n * 1000) / 1000;
@@ -140,12 +141,77 @@ function clampTableDimensionsForLongSideSeating(params: {
   };
 }
 
-/** Screen diagonal inches — scale up slightly for large rooms */
-function screenSizeInches(widthM: number, lengthM: number): number {
+function minSeatsForLayout(kind: RoomLayoutKind): number {
+  if (kind === "huddle") return 2;
+  if (kind === "small") return 4;
+  return 4;
+}
+
+function defaultScreenForLayout(
+  kind: RoomLayoutKind,
+  widthM: number,
+  lengthM: number,
+): number {
   const span = Math.max(widthM, lengthM);
-  if (span >= 8.5) return 85;
-  if (span >= 7) return 75;
-  return 65;
+  switch (kind) {
+    case "huddle":
+      return span >= 4.2 ? 50 : 43;
+    case "small":
+      return span >= 5.5 ? 65 : 55;
+    case "medium":
+      return span >= 7 ? 75 : 65;
+    case "large":
+      return span >= 8.5 ? 85 : 75;
+    case "boardroom":
+      return span >= 8.5 ? 85 : 75;
+  }
+}
+
+function resolveScreenInches(
+  analysis: RoomAnalysisForWebex,
+  kind: RoomLayoutKind,
+  widthM: number,
+  lengthM: number,
+): number {
+  const raw = analysis.roomSummary.primaryScreenDiagonalInches;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw >= 32 && raw <= 120) {
+    return Math.round(raw);
+  }
+  return defaultScreenForLayout(kind, widthM, lengthM);
+}
+
+function videoDeviceModel(kind: RoomLayoutKind): "Room Bar" | "Room Bar Pro" {
+  return kind === "huddle" || kind === "small" ? "Room Bar" : "Room Bar Pro";
+}
+
+function includeTableMic(kind: RoomLayoutKind): boolean {
+  return kind === "medium" || kind === "large" || kind === "boardroom";
+}
+
+function tableDimensionsForLayout(
+  kind: RoomLayoutKind,
+  widthM: number,
+  lengthM: number,
+): ReturnType<typeof tableDimensions> {
+  if (kind === "huddle") {
+    const short = Math.min(widthM, lengthM);
+    const side = round3(Math.min(1.35, Math.max(0.9, short * 0.4)));
+    return {
+      tableWid: side,
+      tableLen: round3(Math.max(side * 1.15, 1.1)),
+      rotateTableY: 0,
+      tableCenterZ: 0,
+    };
+  }
+  const base = tableDimensions(widthM, lengthM);
+  if (kind === "small") {
+    return {
+      ...base,
+      tableWid: round3(Math.max(1, base.tableWid * 0.88)),
+      tableLen: round3(Math.max(base.tableWid, base.tableLen * 0.82)),
+    };
+  }
+  return base;
 }
 
 /**
@@ -216,8 +282,8 @@ function longSideChairPositions(params: {
  * Builds JSON for Cisco Webex **Workspace Designer** custom rooms (drag-and-drop on the 3D view).
  * Units are **meters** and rotations **radians** per Cisco documentation.
  *
- * Layout targets **large conference / boardroom** photos: elongated table, chairs on the two
- * long sides only (boardroom style), seat count from max(occupancy, floor-area heuristic).
+ * Layout follows room type (huddle / small / medium / large / boardroom) from seat count —
+ * not a one-size boardroom with Room Bar Pro + Table Mic.
  */
 export function buildWebexDesignerRoomJson(
   analysis: RoomAnalysisForWebex,
@@ -236,7 +302,18 @@ export function buildWebexDesignerRoomJson(
 
   const title = options?.title?.trim() || slugTitle(analysis.roomSummary.likelyUse);
 
-  let { tableWid, tableLen, rotateTableY, tableCenterZ } = tableDimensions(wm, lm);
+  const heuristic = heuristicSeatCount(wm, lm);
+  const occ = analysis.roomSummary.occupancy;
+  const occN = Number.isFinite(occ) && occ > 0 ? Math.floor(occ) : 0;
+  const layoutKind = pickRoomLayoutKind(occN > 0 ? occN : heuristic);
+  const minSeats = minSeatsForLayout(layoutKind);
+  const seatCount = Math.min(
+    MAX_SEATS,
+    Math.max(minSeats, occN > 0 ? occN : heuristic),
+  );
+
+  let { tableWid, tableLen, rotateTableY, tableCenterZ } =
+    tableDimensionsForLayout(layoutKind, wm, lm);
   const clamped = clampTableDimensionsForLongSideSeating({
     wm,
     lm,
@@ -248,23 +325,12 @@ export function buildWebexDesignerRoomJson(
   tableWid = clamped.tableWid;
   tableLen = clamped.tableLen;
 
-  /** Long / short half-extents in table local space (length = long axis of table object) */
   const halfLong = tableLen / 2;
   const halfShort = tableWid / 2;
 
   const wallInset = 0.15;
   const wallX = round3(-wm / 2 + wallInset);
-
-  const heuristic = heuristicSeatCount(wm, lm);
-  const occ = analysis.roomSummary.occupancy;
-  const occN = Number.isFinite(occ) && occ > 0 ? Math.floor(occ) : 0;
-  /** Prefer model count, but scale up when the room clearly fits more people */
-  const seatCount = Math.min(
-    MAX_SEATS,
-    Math.max(MIN_SEATS, Math.max(occN, heuristic))
-  );
-
-  const screenInch = screenSizeInches(wm, lm);
+  const screenInch = resolveScreenInches(analysis, layoutKind, wm, lm);
 
   const customObjects: Record<string, unknown>[] = [];
 
@@ -281,9 +347,9 @@ export function buildWebexDesignerRoomJson(
   customObjects.push({
     id: "rai-roombar",
     objectType: "videoDevice",
-    model: "Room Bar Pro",
+    model: videoDeviceModel(layoutKind),
     color: "dark",
-    position: [wallX, 1.75, tableCenterZ],
+    position: [wallX, layoutKind === "huddle" ? 1.55 : 1.75, tableCenterZ],
     rotation: [0, 1.57, 0],
   });
 
@@ -297,12 +363,14 @@ export function buildWebexDesignerRoomJson(
     role: "singleScreen",
   });
 
-  customObjects.push({
-    id: "rai-table-mic",
-    objectType: "microphone",
-    model: "Table Mic Pro",
-    position: [0, round3(TABLE_MIC_Y), tableCenterZ],
-  });
+  if (includeTableMic(layoutKind)) {
+    customObjects.push({
+      id: "rai-table-mic",
+      objectType: "microphone",
+      model: "Table Mic Pro",
+      position: [0, round3(TABLE_MIC_Y), tableCenterZ],
+    });
+  }
 
   const chairPos = longSideChairPositions({
     seatCount,

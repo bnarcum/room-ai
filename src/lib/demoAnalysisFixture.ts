@@ -17,18 +17,26 @@ export const DEMO_TOUR_ANALYSIS: DemoAnalysisEnvelope = {
       length: 24,
       width: 16,
       height: 9,
+      lengthMin: 22,
+      lengthMax: 26,
+      widthMin: 14.5,
+      widthMax: 17.5,
+      heightMin: 8.5,
+      heightMax: 9.5,
       confidence: 0.74,
       reasoning:
         "Scaled from the long conference table, chair spacing, and wall-to-window proportions in the isometric view.",
     },
     detectedReference: {
-      type: "none",
+      type: "table",
       notes:
-        "No card or paper reference visible; geometry inferred from furniture layout.",
+        "Long wood conference table used as the primary scale cue; no door leaf fully visible.",
     },
     roomSummary: {
       likelyUse: "conference",
       occupancy: 13,
+      primaryScreenDiagonalInches: 75,
+      screenCount: 1,
       keyConstraints: [
         "Strong daylight and garden view on the left wall",
         "Wall-mounted display with flanking cameras on the far wall",
@@ -54,27 +62,35 @@ export const DEMO_TOUR_ANALYSIS: DemoAnalysisEnvelope = {
     recommendations: {
       camera: [
         "Keep cameras flanking the display at seated eye height; verify framing for the full table.",
+        "Check that the garden window is not backlighting faces toward the camera.",
       ],
       lighting: [
         "Add diffuse fill on the table to balance bright window light from the garden side.",
+        "Dim or baffle overheads that wash the wall display.",
       ],
       acoustics: [
         "Consider absorptive panels on the display wall to tame reflections off glass and hard surfaces.",
+        "Keep table mics away from the HVAC path along the window wall.",
       ],
       display: [
         "Current large-format display suits the table length; confirm 4K legibility from the far seats.",
+        "Treat the estimated 75-inch diagonal as directional until site-measured.",
       ],
       seating: [
         "Thirteen seats fit the table; reserve camera-forward positions for active speakers.",
+        "Leave egress behind the window-side chairs.",
       ],
       cabling: [
         "Route table HDMI/USB through a center cable tray to avoid laptop dongle clutter.",
+        "Keep floor crossings off the camera-facing aisle.",
       ],
       network: [
         "Place a wired drop at the table center for Room Bar or codec connectivity.",
+        "Reserve uplink for HD video plus screen share from the far seats.",
       ],
       power: [
         "Add in-table power modules so laptops do not rely on floor cords crossing walkways.",
+        "Confirm the display wall circuit can hold the codec and speakers.",
       ],
     },
     quickChecklist: [

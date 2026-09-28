@@ -1,11 +1,11 @@
-export const DEMO_TOUR_VERSION = "v1.7";
+export const DEMO_TOUR_VERSION = "v1.8";
 export const DEMO_TOUR_STORAGE_KEY = "snaproom-demo-tour-v1";
 
 export type DemoTourPlace = "top" | "bottom" | "left" | "right" | "center";
 
 export type DemoTourStep = {
   id: string;
-  route: "/" | "/results" | "/quick-estimate";
+  route: "/" | "/results";
   target: string | null;
   place: DemoTourPlace;
   title: string;
@@ -21,7 +21,7 @@ export const DEMO_TOUR_STEPS: DemoTourStep[] = [
     target: null,
     place: "center",
     title: "SnapRoom",
-    body: "You're on a deal and the customer sends a room photo. SnapRoom turns one image into length, width, and height estimates, AV suggestions, and one-click exports to Collab Experience and Workspace Designer.",
+    body: "You're on a deal and the customer sends a room photo. SnapRoom turns one image into a room read, directional size ranges, five recs, and exports to Collab Experience and Workspace Designer.",
   },
   {
     id: "upload",
@@ -61,8 +61,8 @@ export const DEMO_TOUR_STEPS: DemoTourStep[] = [
     route: "/results",
     target: "#tour-dimensions",
     place: "bottom",
-    title: "Estimated dimensions",
-    body: "Rough length, width, and height estimates. Treat these as directional — good for a first conversation, a budgetary ROM, or scoping a refresh — not a formal site survey.",
+    title: "Directional size",
+    body: "Length, width, and height as ranges plus confidence — directional for a first conversation, not a formal site survey.",
   },
   {
     id: "recommendations",
@@ -70,7 +70,7 @@ export const DEMO_TOUR_STEPS: DemoTourStep[] = [
     target: "#tour-recommendations",
     place: "top",
     title: "Recommendations",
-    body: "Camera, lighting, acoustics, display, seating, cabling, network, and power — use these as a discovery checklist on your next call.",
+    body: "Five photo-grounded recs: camera, display, audio, lighting, and network.",
   },
   {
     id: "exports",
@@ -78,23 +78,23 @@ export const DEMO_TOUR_STEPS: DemoTourStep[] = [
     target: "#tour-exports",
     place: "bottom",
     title: "One-click export",
-    body: "Download Collab Experience .vrc.json for Video Room Calculator. Or download Workspace Designer room JSON and drag it onto the canvas at designer.webex.com. Snap, size, suggest, then design.",
+    body: "Open Workspace Designer from the seat count, or download Collab Experience .vrc.json with table, TV, and device taken from this estimate.",
   },
   {
-    id: "quick",
-    route: "/quick-estimate",
-    target: "#tour-quick",
+    id: "designer",
+    route: "/results",
+    target: "#tour-designer-cta",
     place: "bottom",
-    title: "Quick Estimate",
-    body: "Upload one photo. SnapRoom estimates seating capacity, screen count, and primary display size — then opens Workspace Designer with a matching room preset and chair count.",
+    title: "Workspace Designer",
+    body: "The Designer link uses the same seat-count preset as before. The room JSON matches huddle, small, medium, large, or boardroom — not a default boardroom.",
   },
   {
     id: "close",
-    route: "/quick-estimate",
+    route: "/results",
     target: null,
     place: "center",
     title: "That's SnapRoom",
-    body: "Room insights from a single photo — on the Collaboration Seller Tools hub.",
+    body: "One photo in. Room read, directional size, five recs, then Designer or Collab Experience.",
   },
 ];
 

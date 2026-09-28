@@ -16,6 +16,8 @@ export type RoomSummaryInput = {
   likelyUse: string;
   /** Hint for chair count (clamped in the builder) */
   occupancy: number;
+  /** Best-effort primary display diagonal; used instead of a boardroom default. */
+  primaryScreenDiagonalInches?: number;
 };
 
 export type RoomAnalysisForWebex = {

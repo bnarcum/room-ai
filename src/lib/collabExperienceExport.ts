@@ -1,3 +1,5 @@
+import { deriveCollabExportGeometry } from "@/lib/collabExportGeometry";
+import { coerceRoomAnalysisPayload } from "@/lib/coerceRoomAnalysis";
 import {
   roomAnalysisSchema,
   type RoomAnalysis,
@@ -136,6 +138,8 @@ function buildQuickSetupItems(params: {
   frntWallToTv: number;
   tvDiag: number;
   drpTvNum: number;
+  deviceId: "roomBar" | "roomBarPro";
+  deviceName: string;
 }): VideoRoomCalculatorJson["items"] {
   const {
     unit,
@@ -198,9 +202,9 @@ function buildQuickSetupItems(params: {
     y: videoY,
     rotation: 0,
     data_zPosition: videoZ,
-    data_deviceid: "roomBarPro",
+    data_deviceid: params.deviceId,
     id: videoId,
-    name: "Room Bar Pro",
+    name: params.deviceName,
   };
 
   return {
@@ -238,12 +242,13 @@ export function buildVideoRoomCalculatorJson(
     analysis: structuredClone(analysis),
   };
 
-  const tableWidth = 4;
-  const tableLength = 10;
-  const distDisplayToTable = 5;
-  const frntWallToTv = 0.5;
-  const tvDiag = 65;
-  const drpTvNum = 1;
+  const geo = deriveCollabExportGeometry(analysis);
+  const tableWidth = geo.tableWidth;
+  const tableLength = geo.tableLength;
+  const distDisplayToTable = geo.distDisplayToTable;
+  const frntWallToTv = geo.frntWallToTv;
+  const tvDiag = geo.tvDiag;
+  const drpTvNum = geo.drpTvNum;
 
   return {
     name,
@@ -275,6 +280,8 @@ export function buildVideoRoomCalculatorJson(
       frntWallToTv,
       tvDiag,
       drpTvNum,
+      deviceId: geo.device.id,
+      deviceName: geo.device.label,
     }),
     trNodes: [],
     workspace: {
@@ -343,7 +350,7 @@ export function tryBuildVrcFromRoomAiJson(
   }
 
   if (o.ok === true && o.data !== null && typeof o.data === "object") {
-    const parsed = roomAnalysisSchema.safeParse(o.data);
+    const parsed = roomAnalysisSchema.safeParse(coerceRoomAnalysisPayload(o.data));
     if (!parsed.success) {
       return {
         ok: false,
@@ -360,7 +367,7 @@ export function tryBuildVrcFromRoomAiJson(
     return { ok: true, vrc };
   }
 
-  const direct = roomAnalysisSchema.safeParse(raw);
+  const direct = roomAnalysisSchema.safeParse(coerceRoomAnalysisPayload(raw));
   if (direct.success) {
     return { ok: true, vrc: buildVideoRoomCalculatorJson(direct.data) };
   }

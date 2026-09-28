@@ -11,6 +11,10 @@ export type LikelyUseCategory =
 
 export type DetectedReferenceType =
   | "none"
+  | "door"
+  | "table"
+  | "chair"
+  | "ceiling"
   | "credit-card"
   | "a4-letter-paper"
   | "known-ceiling-height";
@@ -41,6 +45,18 @@ function normalizeDetectedReferenceType(raw: string): DetectedReferenceType {
   switch (k) {
     case "none":
       return "none";
+    case "door":
+    case "doorway":
+      return "door";
+    case "table":
+    case "conference-table":
+      return "table";
+    case "chair":
+    case "task-chair":
+      return "chair";
+    case "ceiling":
+    case "ceiling-tile":
+      return "ceiling";
     case "credit-card":
       return "credit-card";
     case "a4-letter-paper":
@@ -65,26 +81,46 @@ export const roomAnalysisOutputSchema = z.object({
     unit: z.enum(["feet", "meters"]),
     length: z
       .number()
-      .describe("Room length as a positive number in the chosen unit."),
+      .describe("Midpoint room length in the chosen unit (export midpoint)."),
     width: z
       .number()
-      .describe("Room width as a positive number in the chosen unit."),
+      .describe("Midpoint room width in the chosen unit (export midpoint)."),
     height: z
       .number()
-      .describe("Room height as a positive number in the chosen unit."),
+      .describe("Midpoint room height in the chosen unit (export midpoint)."),
+    lengthMin: z
+      .number()
+      .describe("Lower bound for length; prefer a range over a single number."),
+    lengthMax: z
+      .number()
+      .describe("Upper bound for length; prefer a range over a single number."),
+    widthMin: z
+      .number()
+      .describe("Lower bound for width."),
+    widthMax: z
+      .number()
+      .describe("Upper bound for width."),
+    heightMin: z
+      .number()
+      .describe("Lower bound for height."),
+    heightMax: z
+      .number()
+      .describe("Upper bound for height."),
     confidence: z
       .number()
       .describe("Confidence between 0 and 1 for the dimension estimates."),
     reasoning: z
       .string()
-      .describe("Brief explanation of cues used for the estimate."),
+      .describe(
+        "Brief explanation of reference objects used (door, table, chair, ceiling, known height).",
+      ),
   }),
   detectedReference: z
     .object({
       type: z
         .string()
         .describe(
-          "Reference type: none, credit-card, a4-letter-paper, or known-ceiling-height.",
+          "Primary scale cue: none, door, table, chair, ceiling, known-ceiling-height, credit-card, or a4-letter-paper.",
         ),
       notes: z.string().describe("How the model handled the reference constraint."),
     })
@@ -99,6 +135,16 @@ export const roomAnalysisOutputSchema = z.object({
       .number()
       .describe(
         "Rough seating capacity if visible in the photo; use 0 if unknown (integer preferred)."
+      ),
+    primaryScreenDiagonalInches: z
+      .number()
+      .describe(
+        "Best estimate of the main collaboration display diagonal in inches (e.g. 43, 55, 65, 75, 85). Infer from room size if none is visible.",
+      ),
+    screenCount: z
+      .number()
+      .describe(
+        "Count of wall-mounted or freestanding meeting displays (0 if none visible).",
       ),
     keyConstraints: z.array(z.string()).describe("At least one constraint."),
   }),
@@ -154,6 +200,16 @@ export const roomAnalysisSchema = roomAnalysisOutputSchema
         if (!Number.isFinite(o)) return 0;
         return Math.max(0, Math.round(o));
       })(),
+      primaryScreenDiagonalInches: (() => {
+        const n = Number(data.roomSummary.primaryScreenDiagonalInches);
+        if (!Number.isFinite(n)) return 55;
+        return Math.max(32, Math.min(120, Math.round(n)));
+      })(),
+      screenCount: (() => {
+        const n = Number(data.roomSummary.screenCount);
+        if (!Number.isFinite(n)) return 0;
+        return Math.max(0, Math.min(8, Math.round(n)));
+      })(),
     },
   }))
   .superRefine((data, ctx) => {
@@ -178,6 +234,20 @@ export const roomAnalysisSchema = roomAnalysisOutputSchema
         message: "height must be positive",
         path: ["dimensions", "height"],
       });
+    }
+    const rangePairs = [
+      ["length", dimensions.lengthMin, dimensions.lengthMax],
+      ["width", dimensions.widthMin, dimensions.widthMax],
+      ["height", dimensions.heightMin, dimensions.heightMax],
+    ] as const;
+    for (const [axis, min, max] of rangePairs) {
+      if (!(min > 0) || !(max > 0) || min > max) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `${axis} range must be positive with min ≤ max`,
+          path: ["dimensions", `${axis}Min`],
+        });
+      }
     }
     const conf = dimensions.confidence;
     if (Number.isNaN(conf) || conf < 0 || conf > 1) {
