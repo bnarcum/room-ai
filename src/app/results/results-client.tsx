@@ -10,7 +10,6 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SiteBrandLink } from "@/components/SiteBrand";
-import { deriveCollabExportGeometry } from "@/lib/collabExportGeometry";
 import {
   buildVideoRoomCalculatorJson,
   vrcJsonFileName,
@@ -23,17 +22,14 @@ import {
 import { roomAnalysisSchema, type RoomAnalysis } from "@/lib/roomAnalysis";
 import {
   effectiveSeatCount,
-  formatDirectionalSize,
-  layoutKindFromAnalysis,
-  layoutKindLabel,
-  likelyUseLabel,
+  firstSentence,
+  resultsHeadline,
 } from "@/lib/roomSizing";
-import { loadRoomAnalysisPayload } from "@/lib/resultStorage";
-import { preparePhotoForUpload } from "@/lib/prepareClientPhoto";
 import {
-  buildWebexDesignerSummaryUrl,
-  pickWebexRoomTier,
-} from "@/lib/webexDesignerQuickUrl";
+  loadRoomAnalysisPayload,
+  loadRoomPhotoPreview,
+} from "@/lib/resultStorage";
+import { buildWebexDesignerSummaryUrl } from "@/lib/webexDesignerQuickUrl";
 
 function decodeDataParam(dataParam: string): unknown {
   const decoded = decodeURIComponent(dataParam);
@@ -53,119 +49,27 @@ function parseAnalysis(raw: unknown): RoomAnalysis | null {
   return parsed.success ? parsed.data : null;
 }
 
+const REC_ROWS = [
+  ["Camera", "camera"],
+  ["Display", "display"],
+  ["Audio", "acoustics"],
+  ["Lighting", "lighting"],
+  ["Network", "network"],
+] as const;
+
 export default function ResultsClient() {
   const pathname = usePathname();
   const [copiedJson, setCopiedJson] = useState(false);
   const [exportTip, setExportTip] = useState<ReactNode>(null);
   const [decoded, setDecoded] = useState<AnalyzeEnvelope | null>(null);
   const [ready, setReady] = useState(false);
-  const [designerFile, setDesignerFile] = useState<File | null>(null);
-  const [designerStatus, setDesignerStatus] = useState<
-    "idle" | "uploading" | "error"
-  >("idle");
-  const [designerError, setDesignerError] = useState<string | null>(null);
-  const [photorealDataUrl, setPhotorealDataUrl] = useState<string | null>(null);
-  const [photorealMeta, setPhotorealMeta] = useState<{
-    provider?: string;
-    model?: string;
-  } | null>(null);
-
-  const designerPreviewUrl = useMemo(() => {
-    if (!designerFile) return null;
-    return URL.createObjectURL(designerFile);
-  }, [designerFile]);
-
-  useEffect(() => {
-    return () => {
-      if (designerPreviewUrl) URL.revokeObjectURL(designerPreviewUrl);
-    };
-  }, [designerPreviewUrl]);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (!exportTip) return;
     const id = window.setTimeout(() => setExportTip(null), 30_000);
     return () => window.clearTimeout(id);
   }, [exportTip]);
-
-  type PhotorealOk = {
-    ok: true;
-    meta?: { provider?: string; model?: string };
-    imageBase64: string;
-    mimeType: string;
-  };
-  type PhotorealEnvelope = PhotorealOk | { ok: false; error: string };
-
-  async function onGeneratePhotorealisticRender() {
-    setDesignerError(null);
-    if (!designerFile) {
-      setDesignerStatus("error");
-      setDesignerError(
-        "Please choose an image exported from Workspace Designer.",
-      );
-      return;
-    }
-
-    setDesignerStatus("uploading");
-
-    let uploadFile: File;
-    try {
-      uploadFile = await preparePhotoForUpload(designerFile);
-    } catch (e) {
-      setDesignerStatus("error");
-      setDesignerError(
-        e instanceof Error
-          ? e.message
-          : "Could not prepare this image for upload.",
-      );
-      return;
-    }
-
-    const form = new FormData();
-    form.set("photo", uploadFile);
-
-    let res: Response;
-    try {
-      res = await fetch("/api/designer-photorealistic", {
-        method: "POST",
-        body: form,
-      });
-    } catch {
-      setDesignerStatus("error");
-      setDesignerError("Network error while uploading. Please try again.");
-      return;
-    }
-
-    if (res.status === 413) {
-      setDesignerStatus("error");
-      setDesignerError(
-        "Image was too large. Try a smaller export from Workspace Designer.",
-      );
-      return;
-    }
-
-    const json = (await res.json().catch(() => null)) as PhotorealEnvelope | null;
-    if (!res.ok || !json || !json.ok) {
-      setDesignerStatus("error");
-      setDesignerError(
-        (json && "error" in json && json.error) ||
-          "Image generation failed. Try again or check server configuration.",
-      );
-      return;
-    }
-
-    const mime = json.mimeType || "image/png";
-    setPhotorealDataUrl(`data:${mime};base64,${json.imageBase64}`);
-    setPhotorealMeta(json.meta ?? null);
-    setDesignerStatus("idle");
-  }
-
-  function onDownloadPhotorealistic() {
-    if (!photorealDataUrl) return;
-    const a = document.createElement("a");
-    a.href = photorealDataUrl;
-    a.download = "workspace-designer-photorealistic.png";
-    a.click();
-  }
 
   useLayoutEffect(() => {
     try {
@@ -177,6 +81,7 @@ export default function ResultsClient() {
         const stored = loadRoomAnalysisPayload();
         setDecoded(stored as AnalyzeEnvelope | null);
       }
+      setPhotoPreview(loadRoomPhotoPreview());
     } catch {
       setDecoded(null);
     } finally {
@@ -198,38 +103,10 @@ export default function ResultsClient() {
   const meta = decoded && decoded.ok ? decoded.meta : null;
   const parseFailed = Boolean(decoded && decoded.ok && !analysis);
 
-  const observedSafe = useMemo(() => {
-    if (!analysis) {
-      return {
-        electronicsAndDevices: [] as string[],
-        plantsAndDecor: [] as string[],
-        otherNotable: [] as string[],
-      };
-    }
-    return (
-      analysis.observedItems ?? {
-        electronicsAndDevices: [],
-        plantsAndDecor: [],
-        otherNotable: [],
-      }
-    );
-  }, [analysis]);
-
-  const alreadyThere = useMemo(() => {
-    return [
-      ...observedSafe.electronicsAndDevices,
-      ...observedSafe.plantsAndDecor,
-      ...observedSafe.otherNotable,
-    ];
-  }, [observedSafe]);
-
   const seatCount = analysis ? effectiveSeatCount(analysis) : 0;
   const designerUrl = analysis
     ? buildWebexDesignerSummaryUrl(seatCount)
     : null;
-  const designerTier = analysis ? pickWebexRoomTier(seatCount) : null;
-  const layoutKind = analysis ? layoutKindFromAnalysis(analysis) : null;
-  const vrcGeometry = analysis ? deriveCollabExportGeometry(analysis) : null;
 
   const loading = !ready;
   const canExportVrc = Boolean(ready && analysis);
@@ -254,9 +131,7 @@ export default function ResultsClient() {
     a.download = "snaproom-analysis.json";
     a.click();
     URL.revokeObjectURL(url);
-    setExportTip(
-      "Saved snaproom-analysis.json — archive or share this file. For Collab Experience, use the .vrc.json download.",
-    );
+    setExportTip("Saved snaproom-analysis.json.");
   }
 
   function onDownloadVrcJson() {
@@ -273,7 +148,7 @@ export default function ResultsClient() {
     a.click();
     URL.revokeObjectURL(url);
     setExportTip(
-      "Downloaded .vrc.json — import that file on collabexperience.com (Video Room Calculator). Table, TV, and device come from this estimate.",
+      "Downloaded .vrc.json — import on collabexperience.com (New → Open File).",
     );
   }
 
@@ -290,16 +165,16 @@ export default function ResultsClient() {
     URL.revokeObjectURL(url);
     setExportTip(
       <>
-        Downloaded Webex room JSON — at{" "}
+        Downloaded Designer JSON — drag onto the 3D view at{" "}
         <a
           href="https://designer.webex.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="font-medium text-[hsl(173_85%_58%)] underline decoration-[hsl(173_85%_48%/0.55)] underline-offset-2 transition-colors hover:text-[hsl(173_85%_68%)]"
+          className="font-medium text-[hsl(173_85%_58%)] underline underline-offset-2"
         >
           designer.webex.com
-        </a>{" "}
-        open Custom rooms and drag this file onto the 3D view.
+        </a>
+        .
       </>,
     );
   }
@@ -312,44 +187,30 @@ export default function ResultsClient() {
         </div>
         <div className="surface-card rounded-3xl p-7">
           <div className="flex items-start justify-between gap-4">
-            <div className="grid gap-2">
-              <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[hsl(277_90%_72%/0.92)]">
-                Output
-              </p>
-              <h1 className="text-3xl font-semibold tracking-tight text-white">
-                Results
-              </h1>
-              <p className="copy-readable max-w-[62ch]">
-                Room read, directional size, five recs, then Designer or Collab
-                Experience.
-              </p>
-            </div>
-
-            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-              <Link
-                href="/"
-                className="rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2 text-sm font-medium text-[hsl(215_20%_82%)] transition-colors hover:border-[hsl(277_90%_65%/0.45)] hover:bg-[hsl(277_90%_65%/0.1)] hover:text-[hsl(210_40%_98%)]"
-              >
-                New analysis
-              </Link>
-            </div>
+            <h1 className="text-3xl font-semibold tracking-tight text-white">
+              Results
+            </h1>
+            <Link
+              href="/"
+              className="rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2 text-sm font-medium text-[hsl(215_20%_82%)] transition-colors hover:border-[hsl(277_90%_65%/0.45)] hover:bg-[hsl(277_90%_65%/0.1)] hover:text-[hsl(210_40%_98%)]"
+            >
+              New analysis
+            </Link>
           </div>
 
           {loading ? (
-            <p className="copy-muted mt-6">
-              Loading saved results from this browser tab…
-            </p>
+            <p className="copy-muted mt-6">Loading results…</p>
           ) : null}
           {!loading && !decoded ? (
             <div className="mt-6 rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.65)] p-4 text-[15px] leading-relaxed text-[hsl(215_20%_84%)]">
-              No results in this tab yet. Go back and run{" "}
+              No results in this tab yet.{" "}
               <Link
                 href="/"
-                className="font-semibold text-white underline decoration-[hsl(277_90%_65%/0.45)] underline-offset-2 hover:decoration-[hsl(277_90%_72%)]"
+                className="font-semibold text-white underline underline-offset-2"
               >
-                SnapRoom
-              </Link>{" "}
-              on a photo to populate this page.
+                Analyze a photo
+              </Link>
+              .
             </div>
           ) : null}
           {!loading && decoded && decoded.ok === false ? (
@@ -366,64 +227,29 @@ export default function ResultsClient() {
 
           {!loading && analysis ? (
             <div className="mt-8 grid gap-6">
+              {photoPreview ? (
+                <div className="overflow-hidden rounded-2xl border border-[hsl(217_33%_25%)] bg-black/40">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={photoPreview}
+                    alt="Analyzed room photo"
+                    className="mx-auto max-h-40 w-full object-cover"
+                    data-testid="results-photo"
+                  />
+                </div>
+              ) : null}
+
               <section
                 className="rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.45)] p-5"
                 id="tour-room-read"
                 aria-label="Room read"
               >
-                <div className="text-sm font-medium text-[hsl(210_40%_98%)]">
-                  Room read
-                </div>
-                <p className="mt-3 text-[17px] font-semibold text-white">
-                  {likelyUseLabel(analysis.roomSummary.likelyUse)}
-                  {layoutKind ? ` · ${layoutKindLabel(layoutKind)}` : ""}
-                  {` · ${seatCount} seats`}
-                </p>
-                <p className="mt-2 text-[15px] leading-relaxed text-[hsl(215_20%_78%)]">
-                  <span className="font-medium text-[hsl(215_20%_90%)]">
-                    Already there:{" "}
-                  </span>
-                  {alreadyThere.length
-                    ? alreadyThere.join(" · ")
-                    : "Nothing notable called out in the photo."}
-                </p>
-                {analysis.roomSummary.keyConstraints.length ? (
-                  <ul className="mt-3 list-disc pl-5 text-[14px] leading-relaxed text-[hsl(215_20%_68%)]">
-                    {analysis.roomSummary.keyConstraints.map((c, i) => (
-                      <li key={i}>{c}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </section>
-
-              <section
-                className="rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.45)] p-5"
-                id="tour-dimensions"
-                aria-label="Directional size"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-sm font-medium text-[hsl(210_40%_98%)]">
-                    Directional size
-                  </div>
-                  {meta?.model ? (
-                    <div className="text-sm text-[hsl(215_20%_68%)]">
-                      Model: {meta.model}
-                    </div>
-                  ) : null}
-                </div>
-                <p className="mt-3 text-[20px] font-semibold tracking-tight text-white">
-                  {formatDirectionalSize(analysis)}
-                </p>
-                <p className="mt-2 text-sm leading-relaxed text-[hsl(215_20%_72%)]">
-                  Confidence:{" "}
-                  {Math.round(analysis.dimensions.confidence * 100)}% —{" "}
-                  {analysis.dimensions.reasoning}
-                </p>
-                <p className="mt-2 text-[13px] text-[hsl(215_20%_55%)]">
-                  Midpoints for exports: {analysis.dimensions.length} ×{" "}
-                  {analysis.dimensions.width} × {analysis.dimensions.height}{" "}
-                  {analysis.dimensions.unit}. Reference:{" "}
-                  {analysis.detectedReference.type.replace(/-/g, " ")}.
+                <p
+                  id="tour-dimensions"
+                  className="text-[20px] font-semibold tracking-tight text-white"
+                  data-testid="results-headline"
+                >
+                  {resultsHeadline(analysis)}
                 </p>
               </section>
 
@@ -432,34 +258,25 @@ export default function ResultsClient() {
                 id="tour-recommendations"
                 aria-label="Recommendations"
               >
-                <div className="text-sm font-medium text-[hsl(210_40%_98%)]">
-                  Recommendations
-                </div>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  {(
-                    [
-                      ["Camera", analysis.recommendations.camera],
-                      ["Display", analysis.recommendations.display],
-                      ["Audio", analysis.recommendations.acoustics],
-                      ["Lighting", analysis.recommendations.lighting],
-                      ["Network", analysis.recommendations.network],
-                    ] as const
-                  ).map(([title, items]) => (
-                    <div
-                      key={title}
-                      className="rounded-xl border border-[hsl(217_33%_22%)] bg-[hsl(220_25%_8%/0.45)] p-4 transition-colors hover:border-[hsl(277_90%_65%/0.22)]"
-                    >
-                      <div className="text-[15px] font-semibold text-[hsl(277_90%_74%)]">
-                        {title}
-                      </div>
-                      <ul className="mt-2 list-disc pl-5 text-[15px] leading-relaxed text-[hsl(215_20%_78%)]">
-                        {items.map((it, i) => (
-                          <li key={i}>{it}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
+                <ul className="grid gap-3">
+                  {REC_ROWS.map(([title, key]) => {
+                    const line = firstSentence(
+                      analysis.recommendations[key][0] ?? "",
+                    );
+                    return (
+                      <li
+                        key={title}
+                        className="text-[15px] leading-snug text-[hsl(215_20%_82%)]"
+                        data-testid={`rec-${title}`}
+                      >
+                        <span className="font-semibold text-[hsl(277_90%_74%)]">
+                          {title}
+                        </span>
+                        {line ? ` — ${line}` : ""}
+                      </li>
+                    );
+                  })}
+                </ul>
               </section>
 
               <section
@@ -467,36 +284,7 @@ export default function ResultsClient() {
                 aria-label="Primary exports"
                 id="tour-exports"
               >
-                <h2 className="text-base font-semibold text-white">Next steps</h2>
-                <p className="copy-readable mt-2">
-                  Open Designer from this seat count, or download Collab
-                  Experience with table, TV, and device taken from the estimate.
-                </p>
-
-                {designerTier && designerUrl ? (
-                  <p className="mt-3 text-[13px] text-[hsl(215_20%_72%)]">
-                    Designer preset:{" "}
-                    <span className="font-medium text-[hsl(210_40%_90%)]">
-                      {designerTier.roomTypeLabel}
-                    </span>{" "}
-                    <span className="font-mono text-[12px] text-[hsl(215_20%_58%)]">
-                      ({designerTier.pathSlug}, {seatCount} seats)
-                    </span>
-                  </p>
-                ) : null}
-
-                {vrcGeometry ? (
-                  <p
-                    className="mt-2 text-[13px] text-[hsl(215_20%_72%)]"
-                    data-testid="vrc-derived-fields"
-                  >
-                    Collab export: table {vrcGeometry.tableWidth} ×{" "}
-                    {vrcGeometry.tableLength} {analysis.dimensions.unit} ·{" "}
-                    {vrcGeometry.tvDiag}&quot; · {vrcGeometry.device.label}
-                  </p>
-                ) : null}
-
-                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   {designerUrl ? (
                     <a
                       id="tour-designer-cta"
@@ -514,10 +302,49 @@ export default function ResultsClient() {
                     disabled={!canExportVrc}
                     className="rounded-xl border border-[hsl(277_90%_55%/0.35)] bg-[hsl(277_50%_22%/0.35)] px-5 py-3 text-[15px] font-semibold text-[hsl(210_40%_98%)] transition-colors hover:border-[hsl(277_90%_65%/0.45)] hover:bg-[hsl(277_90%_65%/0.12)] disabled:cursor-not-allowed disabled:opacity-45"
                   >
-                    Download Collab Experience (.vrc.json)
+                    Download for Collab Experience
                   </button>
                 </div>
 
+                {exportTip ? (
+                  <p
+                    className="mt-4 rounded-xl border border-[hsl(173_80%_40%/0.35)] bg-[hsl(173_80%_40%/0.1)] px-4 py-3 text-[14px] leading-relaxed text-[hsl(210_40%_94%)]"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {exportTip}
+                  </p>
+                ) : null}
+              </section>
+
+              <details className="rounded-xl border border-[hsl(217_33%_22%)] bg-[hsl(220_25%_10%/0.35)] px-4 py-3 [&_summary]:cursor-pointer [&_summary]:font-medium [&_summary]:text-[hsl(215_20%_90%)]">
+                <summary className="select-none">More</summary>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <button
+                    type="button"
+                    onClick={onDownloadWebexDesignerJson}
+                    disabled={!canExportVrc}
+                    className="rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2.5 text-[14px] font-semibold text-[hsl(210_40%_96%)] disabled:opacity-45"
+                  >
+                    Download Designer JSON
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onCopyAnalysisJson}
+                    disabled={loading || !pretty}
+                    className="rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2.5 text-[14px] font-semibold text-[hsl(210_40%_96%)] disabled:opacity-45"
+                  >
+                    {copiedJson ? "Copied JSON" : "Copy full analysis"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onDownloadJson}
+                    disabled={loading || !pretty}
+                    className="rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2.5 text-[14px] font-semibold text-[hsl(210_40%_96%)] disabled:opacity-45"
+                  >
+                    Download full analysis
+                  </button>
+                </div>
                 {designerUrl ? (
                   <p
                     className="mt-3 break-all font-mono text-[12px] leading-relaxed text-[hsl(173_85%_62%)]"
@@ -526,128 +353,9 @@ export default function ResultsClient() {
                     {designerUrl}
                   </p>
                 ) : null}
-
-                {exportTip ? (
-                  <p
-                    className="mt-4 rounded-xl border border-[hsl(173_80%_40%/0.35)] bg-[hsl(173_80%_40%/0.1)] px-4 py-3 text-[14px] leading-relaxed text-[hsl(210_40%_94%)]"
-                    role="status"
-                    aria-live="polite"
-                  >
-                    <span className="font-semibold text-[hsl(173_85%_52%)]">
-                      Next step:{" "}
-                    </span>
-                    {exportTip}
-                  </p>
-                ) : null}
-
-                <details className="mt-5 rounded-xl border border-[hsl(217_33%_22%)] bg-[hsl(220_25%_10%/0.35)] px-4 py-3 [&_summary]:cursor-pointer [&_summary]:font-medium [&_summary]:text-[hsl(215_20%_90%)]">
-                  <summary className="select-none">More downloads</summary>
-                  <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                    <button
-                      type="button"
-                      onClick={onDownloadWebexDesignerJson}
-                      disabled={!canExportVrc}
-                      className="rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2.5 text-[14px] font-semibold text-[hsl(210_40%_96%)] disabled:opacity-45"
-                    >
-                      Download Designer room JSON
-                    </button>
-                    <button
-                      type="button"
-                      onClick={onCopyAnalysisJson}
-                      disabled={loading || !pretty}
-                      className="rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2.5 text-[14px] font-semibold text-[hsl(210_40%_96%)] disabled:opacity-45"
-                    >
-                      {copiedJson ? "Copied JSON" : "Copy analysis JSON"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={onDownloadJson}
-                      disabled={loading || !pretty}
-                      className="rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2.5 text-[14px] font-semibold text-[hsl(210_40%_96%)] disabled:opacity-45"
-                    >
-                      Download full analysis
-                    </button>
-                  </div>
-                </details>
-              </section>
+              </details>
             </div>
           ) : null}
-
-          <details className="mt-8 rounded-2xl border border-[hsl(277_90%_55%/0.22)] bg-[hsl(277_45%_14%/0.35)] p-5 [&_summary]:cursor-pointer">
-            <summary className="text-sm font-medium text-white">
-              Photorealistic render (optional)
-            </summary>
-            <div className="mt-4 grid gap-4">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  setDesignerFile(e.target.files?.[0] ?? null);
-                  setPhotorealDataUrl(null);
-                  setPhotorealMeta(null);
-                }}
-                className="block w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.92)] px-3 py-2.5 text-[15px] text-[hsl(210_40%_96%)] outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-[hsl(277_90%_65%/0.14)] file:px-3 file:py-2 file:text-[15px] file:font-semibold file:text-[hsl(210_40%_96%)]"
-              />
-              <button
-                type="button"
-                onClick={onGeneratePhotorealisticRender}
-                disabled={designerStatus === "uploading"}
-                className="btn-accent inline-flex items-center justify-center rounded-xl px-5 py-3 text-[15px] font-semibold disabled:cursor-not-allowed"
-              >
-                {designerStatus === "uploading"
-                  ? "Generating…"
-                  : "Generate photorealistic render"}
-              </button>
-              {designerError ? (
-                <p
-                  className="rounded-xl border border-red-500/25 bg-red-950/40 px-3 py-2 text-[15px] leading-snug text-red-200"
-                  role="alert"
-                >
-                  {designerError}
-                </p>
-              ) : null}
-              {photorealDataUrl ? (
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={onDownloadPhotorealistic}
-                    className="rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2.5 text-[15px] font-semibold"
-                  >
-                    Download PNG
-                  </button>
-                  {photorealMeta?.model ? (
-                    <span className="self-center text-[13px] text-[hsl(215_20%_62%)]">
-                      {photorealMeta.model}
-                    </span>
-                  ) : null}
-                </div>
-              ) : null}
-              {designerPreviewUrl || photorealDataUrl ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="aspect-video overflow-hidden rounded-xl border border-[hsl(217_33%_25%)] bg-black/45">
-                    {designerPreviewUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={designerPreviewUrl}
-                        alt="Workspace Designer render preview"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : null}
-                  </div>
-                  <div className="aspect-video overflow-hidden rounded-xl border border-[hsl(277_90%_55%/0.28)] bg-[hsl(220_25%_8%/0.65)]">
-                    {photorealDataUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={photorealDataUrl}
-                        alt="Photorealistic generated render"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          </details>
         </div>
       </main>
     </div>

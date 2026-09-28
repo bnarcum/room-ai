@@ -7,7 +7,10 @@ export type {
 } from "./types";
 export type { RoomLayoutKind, WebexRoomTier } from "./roomTier";
 export {
+  areaSquareFeet,
   clampDesignerSeatCount,
+  effectiveDesignerSeatCount,
+  heuristicSeatCountFromDims,
   pickRoomLayoutKind,
   pickWebexRoomTier,
 } from "./roomTier";

@@ -1,5 +1,8 @@
 import { preparePhotoForUpload } from "@/lib/prepareClientPhoto";
-import { saveRoomAnalysisPayload } from "@/lib/resultStorage";
+import {
+  saveRoomAnalysisPayload,
+  saveRoomPhotoThumbnail,
+} from "@/lib/resultStorage";
 
 type AnalyzeResponse =
   | { ok: true; meta?: { provider?: string; model?: string }; data: unknown }
@@ -60,6 +63,8 @@ export async function runClientRoomAnalysis(input: {
         "The analysis failed. Please try a different photo.",
     };
   }
+
+  await saveRoomPhotoThumbnail(uploadFile);
 
   if (!saveRoomAnalysisPayload(json)) {
     return {

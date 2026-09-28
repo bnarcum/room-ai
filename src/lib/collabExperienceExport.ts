@@ -4,13 +4,14 @@ import {
   roomAnalysisSchema,
   type RoomAnalysis,
 } from "@/lib/roomAnalysis";
+import { snapRoomTitle } from "@/lib/roomSizing";
 
 /**
  * Video Room Calculator native save format (collabexperience.com / Ctrl+S).
  * Import validates: `room` exists, truthy roomWidth & roomLength, and `roomHeight` key present.
  * @see https://github.com/vtjoeh/video_room_calc/blob/main/FAQ.md
  */
-export const VIDEO_ROOM_CALC_FILE_VERSION = "v0.1.643" as const;
+export const VIDEO_ROOM_CALC_FILE_VERSION = "v0.1.671" as const;
 
 /** Embedded analysis payload; preserved as extra keys Video Room Calculator ignores but round-trips on re-save in many builds. */
 export const ROOM_AI_VRC_EMBED_VERSION = 1 as const;
@@ -25,6 +26,21 @@ export type RoomAiVrcEmbed = {
 
 /** Matches Video Room Calculator HTML defaults / quick setup (see vtjoeh/video_room_calc). */
 const FT_PER_M = 3.28084;
+
+export type VrcCanvasItem = {
+  x: number;
+  y: number;
+  id: string;
+  data_deviceid: string;
+  name?: string;
+  width?: number;
+  height?: number;
+  rotation?: number;
+  data_zPosition?: number;
+  data_diagonalInches?: number;
+  data_layerId?: string;
+  data_chairSpacing?: number;
+};
 
 export type VideoRoomCalculatorJson = {
   name: string;
@@ -52,18 +68,8 @@ export type VideoRoomCalculatorJson = {
   };
   software: string;
   authorVersion: string;
-  items: {
-    videoDevices: unknown[];
-    chairs: unknown[];
-    tables: unknown[];
-    stageFloors: unknown[];
-    boxes: unknown[];
-    rooms: unknown[];
-    displays: unknown[];
-    speakers: unknown[];
-    microphones: unknown[];
-    touchPanels: unknown[];
-  };
+  /** Current VRC save shape is a flat item list (legacy bucketed files still import). */
+  items: VrcCanvasItem[];
   trNodes: unknown[];
   workspace: {
     removeDefaultWalls: boolean;
@@ -125,100 +131,227 @@ function defaultRoomCalculationFields(unit: "feet" | "meters"): Pick<
   };
 }
 
+const LAYER0 = "0";
+const CHAIR_SPACING_FT = 2.35;
+const CHAIR_DEPTH_M = 0.65;
+
+function fromFeet(valueFt: number, unit: "feet" | "meters"): number {
+  return unit === "meters" ? valueFt / FT_PER_M : valueFt;
+}
+
+function knownDisplayId(drpTvNum: number): "displaySngl_2" | "displayDbl_2" | "displayTrpl_2" {
+  if (drpTvNum === 2) return "displayDbl_2";
+  if (drpTvNum >= 3) return "displayTrpl_2";
+  return "displaySngl_2";
+}
+
+function clampRect(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  roomWidth: number,
+  roomLength: number,
+): { x: number; y: number; width: number; height: number } {
+  let w = Math.max(0.4, Math.min(width, roomWidth - 0.4));
+  let h = Math.max(0.4, Math.min(height, roomLength - 0.4));
+  let nx = Math.min(Math.max(0.15, x), Math.max(0.15, roomWidth - w - 0.15));
+  let ny = Math.min(Math.max(0.15, y), Math.max(0.15, roomLength - h - 0.15));
+  if (nx + w > roomWidth - 0.1) w = Math.max(0.4, roomWidth - nx - 0.1);
+  if (ny + h > roomLength - 0.1) h = Math.max(0.4, roomLength - ny - 0.1);
+  return { x: round2(nx), y: round2(ny), width: round2(w), height: round2(h) };
+}
+
+function buildChairRow(params: {
+  unit: "feet" | "meters";
+  tableX: number;
+  tableY: number;
+  tableWidth: number;
+  tableLength: number;
+  roomWidth: number;
+  roomLength: number;
+  seatCount: number;
+}): VrcCanvasItem[] {
+  const {
+    unit,
+    tableX,
+    tableY,
+    tableWidth,
+    tableLength,
+    roomWidth,
+    roomLength,
+    seatCount,
+  } = params;
+  const spacing = fromFeet(CHAIR_SPACING_FT, unit);
+  const depth = unit === "meters" ? CHAIR_DEPTH_M : CHAIR_DEPTH_M * FT_PER_M;
+  const gap = fromFeet(0.18, unit);
+  const perSide = Math.max(2, Math.ceil(seatCount / 2));
+  const rowLen = Math.min(tableLength, perSide * spacing);
+  const items: VrcCanvasItem[] = [];
+
+  const left = clampRect(
+    tableX - depth - gap,
+    tableY,
+    depth,
+    rowLen,
+    roomWidth,
+    roomLength,
+  );
+  items.push({
+    ...left,
+    rotation: 0,
+    data_deviceid: "wallChairs",
+    data_chairSpacing: round2(spacing),
+    data_layerId: LAYER0,
+    id: crypto.randomUUID(),
+    name: "Row of Chairs",
+  });
+
+  const right = clampRect(
+    tableX + tableWidth + gap,
+    tableY,
+    depth,
+    rowLen,
+    roomWidth,
+    roomLength,
+  );
+  items.push({
+    ...right,
+    rotation: 180,
+    data_deviceid: "wallChairs",
+    data_chairSpacing: round2(spacing),
+    data_layerId: LAYER0,
+    id: crypto.randomUUID(),
+    name: "Row of Chairs",
+  });
+
+  const along = Math.max(2, Math.floor(tableLength / spacing));
+  const startY = tableY + spacing / 2 + (tableLength - along * spacing) / 2;
+  for (let i = 0; i < along; i++) {
+    const y = round2(startY + spacing * i);
+    if (y < 0 || y > roomLength) continue;
+    const leftX = round2(tableX - spacing / 2.5);
+    if (leftX >= 0 && leftX <= roomWidth) {
+      items.push({
+        x: leftX,
+        y,
+        rotation: -90,
+        data_deviceid: "chair",
+        data_layerId: LAYER0,
+        id: crypto.randomUUID(),
+        name: "Chair",
+      });
+    }
+    const rightX = round2(tableX + tableWidth + spacing / 2.5);
+    if (rightX >= 0 && rightX <= roomWidth) {
+      items.push({
+        x: rightX,
+        y,
+        rotation: 90,
+        data_deviceid: "chair",
+        data_layerId: LAYER0,
+        id: crypto.randomUUID(),
+        name: "Chair",
+      });
+    }
+  }
+
+  return items;
+}
+
 /**
- * Same geometry as in-app Quick Setup: rectangle table, single display, Room Bar Pro.
- * Without this, import succeeds but the canvas looks “empty” (no equipment on the floor plan).
+ * Quick Setup–style canvas: table, display, Room Bar Pro, and a visible chair row.
+ * Items are a flat array matching current collabexperience.com saves (v0.1.671).
  */
 function buildQuickSetupItems(params: {
   unit: "feet" | "meters";
   roomWidth: number;
+  roomLength: number;
   tableWidth: number;
   tableLength: number;
   distDisplayToTable: number;
   frntWallToTv: number;
   tvDiag: number;
   drpTvNum: number;
-  deviceId: "roomBar" | "roomBarPro";
-  deviceName: string;
-}): VideoRoomCalculatorJson["items"] {
+  seatCount: number;
+}): VrcCanvasItem[] {
   const {
     unit,
     roomWidth,
-    tableWidth,
-    tableLength,
+    roomLength,
     distDisplayToTable,
     frntWallToTv,
     tvDiag,
     drpTvNum,
+    seatCount,
   } = params;
 
-  const depthHalfM = (90 / 1000) / 2;
+  const tableBox = clampRect(
+    roomWidth / 2 - params.tableWidth / 2,
+    frntWallToTv + distDisplayToTable,
+    params.tableWidth,
+    params.tableLength,
+    roomWidth,
+    roomLength,
+  );
+
+  const depthHalfM = 90 / 1000 / 2;
   const offset = unit === "feet" ? depthHalfM * FT_PER_M : depthHalfM;
-  const videoY = round2(frntWallToTv - offset);
+  const videoY = round2(Math.max(0.15, Math.min(roomLength - 0.15, frntWallToTv - offset)));
+  const videoX = round2(Math.max(0.15, Math.min(roomWidth - 0.15, roomWidth / 2)));
 
   const videoZ =
-    unit === "feet"
-      ? round2((900 / 1000) * FT_PER_M)
-      : round2(900 / 1000);
-
+    unit === "feet" ? round2((900 / 1000) * FT_PER_M) : round2(900 / 1000);
   const displayVertM = 1010 / 1000 - 0.23;
   const displayZ =
-    unit === "feet"
-      ? round2(displayVertM * FT_PER_M)
-      : round2(displayVertM);
+    unit === "feet" ? round2(displayVertM * FT_PER_M) : round2(displayVertM);
 
-  let displayId = "displaySngl_2";
-  if (drpTvNum === 2) displayId = "displayDbl_2";
-  else if (drpTvNum === 3) displayId = "displayTrpl_3";
+  const displayId = knownDisplayId(drpTvNum);
 
-  const tableId = crypto.randomUUID();
-  const displayIdUuid = crypto.randomUUID();
-  const videoId = crypto.randomUUID();
-
-  const tblAttrs = {
-    x: round2(roomWidth / 2 - tableWidth / 2),
-    y: round2(frntWallToTv + distDisplayToTable),
-    width: tableWidth,
-    height: tableLength,
+  const table: VrcCanvasItem = {
+    ...tableBox,
     rotation: 0,
     data_deviceid: "tblRect",
-    id: tableId,
+    data_layerId: LAYER0,
+    id: crypto.randomUUID(),
     name: "Rectangle table",
   };
 
-  const displayAttr = {
-    x: round2(roomWidth / 2),
+  const display: VrcCanvasItem = {
+    x: videoX,
     y: videoY,
     rotation: 0,
     data_diagonalInches: tvDiag,
     data_zPosition: displayZ,
     data_deviceid: displayId,
-    id: displayIdUuid,
+    data_layerId: LAYER0,
+    id: crypto.randomUUID(),
     name: "Single Display",
   };
 
-  const videoAttr = {
-    x: round2(roomWidth / 2),
+  const video: VrcCanvasItem = {
+    x: videoX,
     y: videoY,
     rotation: 0,
     data_zPosition: videoZ,
-    data_deviceid: params.deviceId,
-    id: videoId,
-    name: params.deviceName,
+    data_deviceid: "roomBarPro",
+    data_layerId: LAYER0,
+    id: crypto.randomUUID(),
+    name: "Room Bar Pro",
   };
 
-  return {
-    videoDevices: [videoAttr],
-    chairs: [],
-    tables: [tblAttrs],
-    stageFloors: [],
-    boxes: [],
-    rooms: [],
-    displays: [displayAttr],
-    speakers: [],
-    microphones: [],
-    touchPanels: [],
-  };
+  const chairs = buildChairRow({
+    unit,
+    tableX: table.x,
+    tableY: table.y,
+    tableWidth: table.width ?? tableBox.width,
+    tableLength: table.height ?? tableBox.height,
+    roomWidth,
+    roomLength,
+    seatCount,
+  });
+
+  return [table, display, video, ...chairs];
 }
 
 /**
@@ -232,8 +365,7 @@ export function buildVideoRoomCalculatorJson(
 ): VideoRoomCalculatorJson {
   const d = analysis.dimensions;
   const unit: "feet" | "meters" = d.unit === "meters" ? "meters" : "feet";
-  const use = analysis.roomSummary.likelyUse.replace(/[/\\?%*:|"<>]/g, "-");
-  const name = `SnapRoom — ${use}`.trim();
+  const name = snapRoomTitle(analysis.roomSummary.likelyUse);
 
   const roomAi: RoomAiVrcEmbed = {
     embedVersion: ROOM_AI_VRC_EMBED_VERSION,
@@ -274,14 +406,14 @@ export function buildVideoRoomCalculatorJson(
     items: buildQuickSetupItems({
       unit,
       roomWidth: d.width,
+      roomLength: d.length,
       tableWidth,
       tableLength,
       distDisplayToTable,
       frntWallToTv,
       tvDiag,
       drpTvNum,
-      deviceId: geo.device.id,
-      deviceName: geo.device.label,
+      seatCount: geo.seatCount,
     }),
     trNodes: [],
     workspace: {

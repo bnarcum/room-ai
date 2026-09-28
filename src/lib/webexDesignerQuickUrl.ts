@@ -7,6 +7,8 @@
  */
 export {
   clampDesignerSeatCount,
+  effectiveDesignerSeatCount,
+  heuristicSeatCountFromDims,
   pickRoomLayoutKind,
   pickWebexRoomTier,
   type RoomLayoutKind,

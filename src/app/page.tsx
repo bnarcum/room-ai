@@ -76,17 +76,11 @@ export default function Home() {
         </div>
         <div className="surface-card rounded-3xl p-7">
           <div className="flex flex-col gap-2" id="tour-hero">
-            <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[hsl(277_90%_72%/0.92)]">
-              Collaboration spaces
-            </p>
             <h1 className="text-3xl font-semibold tracking-tight text-white">
-              Room insights from a single photo
+              Analyze a room
             </h1>
-            <p className="copy-readable max-w-[52ch]">
-              Upload one photo. SnapRoom reads the room, gives directional size
-              ranges, and recommends camera, display, audio, lighting, and
-              network — then opens Workspace Designer or downloads Collab
-              Experience.
+            <p className="copy-readable max-w-[48ch]">
+              Photo in. Size, seats, and five recs out.
             </p>
           </div>
 
@@ -122,7 +116,7 @@ export default function Home() {
                   type="text"
                   value={ceilingHeight}
                   onChange={(e) => setCeilingHeight(e.target.value)}
-                  placeholder='e.g. 9 ft or 2.7 m — anchors room height if you know it'
+                  placeholder="e.g. 9 ft or 2.7 m"
                   autoComplete="off"
                   className="w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.92)] px-3 py-2.5 text-[15px] text-[hsl(210_40%_96%)] placeholder:text-[hsl(215_20%_55%)] outline-none transition-[box-shadow] focus-visible:ring-2 focus-visible:ring-[hsl(277_90%_65%/0.45)]"
                 />
@@ -177,11 +171,6 @@ export default function Home() {
                 </p>
               ) : null}
 
-              <p className="copy-muted">
-                Tip: For best results, capture at least two walls and the
-                ceiling/floor boundary. Entering ceiling height above improves
-                scale when you know it.
-              </p>
             </div>
 
             <div className="grid gap-3">
@@ -203,8 +192,7 @@ export default function Home() {
                 )}
               </div>
               <div className="copy-muted" id="tour-privacy">
-                This app does not store your image server-side in v1; it only
-                sends it to the model for analysis.
+                Photo is sent only for this analysis.
               </div>
             </div>
           </div>

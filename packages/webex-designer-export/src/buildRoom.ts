@@ -1,4 +1,8 @@
-import { pickRoomLayoutKind, type RoomLayoutKind } from "./roomTier";
+import {
+  effectiveDesignerSeatCount,
+  pickRoomLayoutKind,
+  type RoomLayoutKind,
+} from "./roomTier";
 import type {
   BuildWebexDesignerRoomOptions,
   RoomAnalysisForWebex,
@@ -30,19 +34,24 @@ function toMeters(value: number, unit: "feet" | "meters"): number {
   return unit === "feet" ? value * FT_TO_M : value;
 }
 
-function slugTitle(likelyUse: string): string {
-  const t = likelyUse.replace(/[/\\?%*:|"<>]/g, "-").trim() || "unknown";
-  return `SnapRoom — ${t}`;
+function titleFromLikelyUse(likelyUse: string): string {
+  const raw = likelyUse.replace(/[/\\?%*:|"<>]/g, "-").trim().toLowerCase();
+  switch (raw) {
+    case "home":
+      return "Home";
+    case "small-office":
+      return "Small office";
+    case "conference":
+      return "Conference";
+    case "classroom":
+      return "Classroom";
+    default:
+      return "Meeting room";
+  }
 }
 
-/**
- * Rough heuristic for boardroom seating when the vision model under-counts people
- * (floor area ≈ m² per seat for conference layouts).
- */
-function heuristicSeatCount(widthM: number, lengthM: number): number {
-  const area = Math.max(widthM * lengthM, 1);
-  const n = Math.round(area / 3.25);
-  return Math.min(MAX_SEATS, Math.max(MIN_SEATS, n));
+function slugTitle(likelyUse: string): string {
+  return `SnapRoom — ${titleFromLikelyUse(likelyUse)}`;
 }
 
 /** Long conference table: long axis follows the longer room dimension. */
@@ -302,15 +311,15 @@ export function buildWebexDesignerRoomJson(
 
   const title = options?.title?.trim() || slugTitle(analysis.roomSummary.likelyUse);
 
-  const heuristic = heuristicSeatCount(wm, lm);
-  const occ = analysis.roomSummary.occupancy;
-  const occN = Number.isFinite(occ) && occ > 0 ? Math.floor(occ) : 0;
-  const layoutKind = pickRoomLayoutKind(occN > 0 ? occN : heuristic);
+  const rawSeats = effectiveDesignerSeatCount({
+    occupancy: analysis.roomSummary.occupancy,
+    width: d.width,
+    length: d.length,
+    unit,
+  });
+  const layoutKind = pickRoomLayoutKind(rawSeats);
   const minSeats = minSeatsForLayout(layoutKind);
-  const seatCount = Math.min(
-    MAX_SEATS,
-    Math.max(minSeats, occN > 0 ? occN : heuristic),
-  );
+  const seatCount = Math.min(MAX_SEATS, Math.max(minSeats, rawSeats));
 
   let { tableWid, tableLen, rotateTableY, tableCenterZ } =
     tableDimensionsForLayout(layoutKind, wm, lm);

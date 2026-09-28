@@ -35,10 +35,9 @@ function fromFeet(valueFt: number, unit: "feet" | "meters"): number {
   return unit === "meters" ? valueFt / FT_PER_M : valueFt;
 }
 
-export function pickCollabVideoDevice(kind: RoomLayoutKind): CollabVideoDevice {
-  if (kind === "huddle" || kind === "small") {
-    return { id: "roomBar", label: "Room Bar" };
-  }
+export function pickCollabVideoDevice(_kind?: RoomLayoutKind): CollabVideoDevice {
+  // roomBar exists in VRC, but SnapRoom pins Room Bar Pro until a huddle
+  // catalog path is explicitly verified for every import build.
   return { id: "roomBarPro", label: "Room Bar Pro" };
 }
 

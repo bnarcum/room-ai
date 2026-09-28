@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Smoke test: seeded analysis → results order, Designer URL, derived VRC copy.
+ * Smoke test: home analyze affordance + seeded results UI.
  * Run: node scripts/results-smoke.mjs [baseUrl]
  */
 import { createRequire } from "node:module";
@@ -76,12 +76,25 @@ const FIXTURE = {
   },
 };
 
+// 24×16 ft area heuristic is 14 seats (max of occupancy 13).
 const EXPECTED_DESIGNER =
-  "https://designer.webex.com/#/room/mediumroom/summary?1&rt=Medium%20Room&ch=13";
+  "https://designer.webex.com/#/room/mediumroom/summary?1&rt=Medium%20Room&ch=14";
 
 async function main() {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+
+  await page.goto(`${baseUrl}/`, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#tour-analyze", { timeout: 10_000 });
+  await page.waitForSelector("#tour-upload input[type='file']", { timeout: 5_000 });
+  await page.waitForSelector("#ceiling-height", { timeout: 5_000 });
+  const homeText = await page.locator("main").textContent();
+  if (!homeText?.includes("Analyze")) {
+    throw new Error("Home page is missing Analyze");
+  }
+  if (homeText.toLowerCase().includes("quick estimate") && homeText.toLowerCase().includes("classic")) {
+    throw new Error("Home should not fork to quick vs classic");
+  }
 
   await page.addInitScript((payload) => {
     sessionStorage.setItem("room-ai-analysis-v1", JSON.stringify(payload));
@@ -109,20 +122,21 @@ async function main() {
     });
   });
   for (let i = 1; i < order.length; i++) {
-    if (order[i].top < order[i - 1].top) {
+    if (order[i].top < order[i - 1].top - 1) {
       throw new Error(
         `Results order wrong: #${order[i].id} appeared above #${order[i - 1].id}`,
       );
     }
   }
 
-  const recTitles = await page
-    .locator("#tour-recommendations .text-\\[15px\\]")
-    .allTextContents();
   const expectedRecs = ["Camera", "Display", "Audio", "Lighting", "Network"];
   for (const title of expectedRecs) {
-    if (!recTitles.some((t) => t.includes(title))) {
+    const rec = await page.locator(`[data-testid="rec-${title}"]`).textContent();
+    if (!rec?.includes(title)) {
       throw new Error(`Missing rec heading: ${title}`);
+    }
+    if (title === "Camera" && rec.includes("Check backlight")) {
+      throw new Error("Recs should be first sentence only");
     }
   }
 
@@ -131,27 +145,32 @@ async function main() {
     throw new Error(`Designer URL mismatch: ${designerHref}`);
   }
 
-  const vrcCopy = await page.locator('[data-testid="vrc-derived-fields"]').textContent();
-  if (!vrcCopy?.includes('75"') || !vrcCopy.includes("Room Bar Pro")) {
-    throw new Error(`VRC summary did not match estimate: ${vrcCopy}`);
-  }
-  if (vrcCopy.includes("4 × 10") || vrcCopy.includes("65\"")) {
-    throw new Error(`VRC summary still looks hardcoded: ${vrcCopy}`);
+  const headline = await page.locator("[data-testid='results-headline']").textContent();
+  if (!headline?.includes("Conference") || !headline.includes("14 seats") || !headline.includes("22–26")) {
+    throw new Error(`Headline missing type/seats/ranges: ${headline}`);
   }
 
-  const roomRead = await page.locator("#tour-room-read").textContent();
-  if (!roomRead?.includes("13 seats") || !roomRead.includes("Conference")) {
-    throw new Error(`Room read missing type/seats: ${roomRead}`);
+  const body = await page.locator("main").textContent();
+  for (const banned of [
+    "Photorealistic",
+    "Already there",
+    "Midpoints for exports",
+    "snaproom-tour-fixture",
+    "Guided wizard",
+  ]) {
+    if (body?.includes(banned)) {
+      throw new Error(`Results still shows hidden copy: ${banned}`);
+    }
   }
 
-  const size = await page.locator("#tour-dimensions").textContent();
-  if (!size?.includes("22–26") || !size.toLowerCase().includes("confidence")) {
-    throw new Error(`Directional size missing ranges: ${size}`);
+  const emptyPhoto = await page.locator('[data-testid="results-photo"]').count();
+  if (emptyPhoto !== 0) {
+    throw new Error("No stored photo should not render a thumbnail");
   }
 
-  console.log("OK: results order, Designer URL, and VRC fields match the estimate");
+  console.log("OK: home analyze + slim results, Designer URL matches seat count");
   console.log(`  Designer URL: ${designerHref}`);
-  console.log(`  ${vrcCopy?.trim()}`);
+  console.log(`  Headline: ${headline?.trim()}`);
   await browser.close();
 }
 

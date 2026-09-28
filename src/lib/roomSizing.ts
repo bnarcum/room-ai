@@ -1,5 +1,6 @@
 import {
-  clampDesignerSeatCount,
+  effectiveDesignerSeatCount,
+  heuristicSeatCountFromDims as sharedHeuristicSeatCountFromDims,
   pickRoomLayoutKind,
   type RoomLayoutKind,
 } from "webex-designer-export";
@@ -52,6 +53,25 @@ export function formatDirectionalSize(analysis: RoomAnalysis): string {
   ].join(" × ");
 }
 
+export function likelyUseHeadline(likelyUse: string): string {
+  switch (likelyUse) {
+    case "home":
+      return "Home";
+    case "small-office":
+      return "Small office";
+    case "conference":
+      return "Conference";
+    case "classroom":
+      return "Classroom";
+    default:
+      return "Meeting room";
+  }
+}
+
+export function snapRoomTitle(likelyUse: string): string {
+  return `SnapRoom — ${likelyUseHeadline(likelyUse)}`;
+}
+
 export function likelyUseLabel(likelyUse: string): string {
   switch (likelyUse) {
     case "home":
@@ -59,12 +79,36 @@ export function likelyUseLabel(likelyUse: string): string {
     case "small-office":
       return "Small office";
     case "conference":
-      return "Conference room";
+      return "Conference";
     case "classroom":
       return "Classroom";
     default:
-      return "Room";
+      return "Meeting room";
   }
+}
+
+export function firstSentence(text: string): string {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!t) return "";
+  const m = t.match(/^(.+?[.!?])(?:\s|$)/);
+  return (m ? m[1] : t).trim();
+}
+
+function formatAxisRangeBare(min: number, max: number): string {
+  if (Math.abs(max - min) < 0.15) {
+    return `${round1(min)}`;
+  }
+  return `${round1(min)}–${round1(max)}`;
+}
+
+export function formatPlanSize(analysis: RoomAnalysis): string {
+  const d = analysis.dimensions;
+  const suffix = d.unit === "meters" ? "m" : "ft";
+  return `${formatAxisRangeBare(d.lengthMin, d.lengthMax)} × ${formatAxisRangeBare(d.widthMin, d.widthMax)} ${suffix}`;
+}
+
+export function resultsHeadline(analysis: RoomAnalysis): string {
+  return `${likelyUseHeadline(analysis.roomSummary.likelyUse)} · ${effectiveSeatCount(analysis)} seats · ${formatPlanSize(analysis)}`;
 }
 
 export function layoutKindLabel(kind: RoomLayoutKind): string {
@@ -87,17 +131,17 @@ export function heuristicSeatCountFromDims(
   length: number,
   unit: "feet" | "meters",
 ): number {
-  const areaFt = toFeet(width, unit) * toFeet(length, unit);
-  return clampDesignerSeatCount(Math.round(areaFt / 28));
+  return sharedHeuristicSeatCountFromDims(width, length, unit);
 }
 
 export function effectiveSeatCount(analysis: RoomAnalysis): number {
-  const occ = analysis.roomSummary.occupancy;
-  if (Number.isFinite(occ) && occ > 0) {
-    return clampDesignerSeatCount(occ);
-  }
   const d = analysis.dimensions;
-  return heuristicSeatCountFromDims(d.width, d.length, d.unit);
+  return effectiveDesignerSeatCount({
+    occupancy: analysis.roomSummary.occupancy,
+    width: d.width,
+    length: d.length,
+    unit: d.unit,
+  });
 }
 
 export function layoutKindFromAnalysis(analysis: RoomAnalysis): RoomLayoutKind {
