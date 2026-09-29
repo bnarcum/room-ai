@@ -11,8 +11,8 @@ import {
 const FT_PER_M = 3.28084;
 
 export type CollabVideoDevice = {
-  id: "roomBar" | "roomBarPro";
-  label: "Room Bar" | "Room Bar Pro";
+  id: "roomBar" | "roomBarPro" | "webexDeskProG2";
+  label: "Room Bar" | "Room Bar Pro" | "Desk Pro G2";
 };
 
 export type CollabExportGeometry = {
@@ -53,7 +53,9 @@ export function deriveCollabExportGeometry(
   const personal = isPersonalWorkspace(analysis.roomSummary.likelyUse);
   const seatCount = effectiveSeatCount(analysis);
   const layoutKind = layoutKindFromAnalysis(analysis);
-  const device = pickCollabVideoDevice(layoutKind);
+  const device: CollabVideoDevice = personal
+    ? { id: "webexDeskProG2", label: "Desk Pro G2" }
+    : pickCollabVideoDevice(layoutKind);
   const tvDiag = inferScreenDiagonalInches({
     dimensions: d,
     roomSummary: analysis.roomSummary,
@@ -116,7 +118,7 @@ export function deriveCollabExportGeometry(
     distDisplayToTable: round2(fromFeet(distDisplayToTableFt, unit)),
     frntWallToTv: round2(fromFeet(frntWallToTvFt, unit)),
     drpTvNum: personal
-      ? 1
+      ? 0
       : Math.max(1, Math.min(3, analysis.roomSummary.screenCount || 1)),
     layoutKind,
     seatCount,

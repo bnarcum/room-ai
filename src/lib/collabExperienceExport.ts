@@ -330,7 +330,7 @@ function buildQuickSetupItems(params: {
   const displayZ =
     unit === "feet" ? round2(displayVertM * FT_PER_M) : round2(displayVertM);
 
-  const displayId = knownDisplayId(drpTvNum);
+  const displayId = knownDisplayId(Math.max(1, drpTvNum));
 
   const table: VrcCanvasItem = {
     ...tableBox,
@@ -381,7 +381,22 @@ function buildQuickSetupItems(params: {
     sittingSideOnly,
   });
 
-  const items: VrcCanvasItem[] = [table, display, video, ...chairs];
+  const items: VrcCanvasItem[] = [table, ...chairs];
+  if (sittingSideOnly) {
+    const depthM = 0.1699;
+    items.push({
+      x: round2(table.x + (table.width ?? tableBox.width) / 2),
+      y: round2(table.y + (depthM / 2) * toUnit),
+      rotation: 0,
+      data_zPosition: round2(0.71 * toUnit),
+      data_deviceid: "webexDeskProG2",
+      data_layerId: LAYER0,
+      id: crypto.randomUUID(),
+      name: "Desk Pro G2",
+    });
+  } else {
+    items.push(display, video);
+  }
   if (!sittingSideOnly) {
     const tableCenterX = round2(table.x + (table.width ?? tableBox.width) / 2);
     const tableCenterY = round2(table.y + (table.height ?? tableBox.height) / 2);

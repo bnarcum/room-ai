@@ -214,8 +214,8 @@ const huddleUrl = buildWebexDesignerSummaryUrl(
 
 if (huddleGeo.layoutKind !== "huddle") fail("small-office should map to huddle.");
 if (huddleSeats > 2) fail(`small-office occupancy 4 must cap at 2 seats, got ${huddleSeats}`);
-if (huddleGeo.device.id !== "roomBarPro") {
-  fail(`Huddle VRC device should be Room Bar Pro, got ${huddleGeo.device.id}`);
+if (huddleGeo.device.id !== "webexDeskProG2") {
+  fail(`Small-office VRC device should be Desk Pro G2, got ${huddleGeo.device.id}`);
 }
 if (huddleVrc.room.tvDiag !== 43) {
   fail(`Huddle VRC tvDiag should be 43, got ${huddleVrc.room.tvDiag}`);
@@ -230,8 +230,11 @@ const huddleVideo = must(
   huddleDesigner.customObjects.find((o) => o.objectType === "videoDevice"),
   "Huddle Designer JSON missing video device",
 );
-if (huddleVideo.model !== "Room Bar") {
-  fail(`Huddle Designer JSON should export Room Bar, got ${String(huddleVideo.model)}`);
+if (huddleVideo.model !== "Desk Pro G2") {
+  fail(`Small-office Designer JSON should export Desk Pro G2, got ${String(huddleVideo.model)}`);
+}
+if (huddleDesigner.customObjects.some((o) => o.objectType === "screen")) {
+  fail("Small-office Designer JSON must not add a wall screen beside the Desk Pro");
 }
 if (huddleDesigner.customObjects.some((o) => o.objectType === "microphone")) {
   fail("Huddle should not include Table Mic Pro.");
@@ -552,9 +555,22 @@ if (knownOfficeDesigner.roomShape.height !== 3.048) {
   );
 }
 if (officeGeo.layoutKind !== "huddle") fail("Home office layout should be huddle.");
-if (officeGeo.drpTvNum !== 1) fail(`Home office must force 1 display, got ${officeGeo.drpTvNum}`);
-if (officeGeo.device.id !== "roomBarPro") {
-  fail(`Home office VRC device should be roomBarPro, got ${officeGeo.device.id}`);
+if (officeGeo.drpTvNum !== 0) {
+  fail(`Home office uses a Desk Pro, not a wall display, got drpTvNum ${officeGeo.drpTvNum}`);
+}
+if (officeGeo.device.id !== "webexDeskProG2") {
+  fail(`Home office VRC device should be webexDeskProG2, got ${officeGeo.device.id}`);
+}
+const officeDesigner = buildWebexDesignerRoomJson(office);
+const officeDesk = officeDesigner.customObjects.find((o) => o.objectType === "videoDevice");
+if (officeDesk?.model !== "Desk Pro G2" || officeDesk.mount !== "desk") {
+  fail(`Home office Designer device should be a desk-mounted Desk Pro G2, got ${JSON.stringify(officeDesk)}`);
+}
+if (officeDesigner.customObjects.some((o) => o.objectType === "screen")) {
+  fail("Home office Designer JSON must not add a wall screen beside the Desk Pro");
+}
+if (officeDesigner.customObjects.some((o) => o.model === "Room Bar" || o.model === "Room Bar Pro")) {
+  fail("Home office Designer JSON must not add a Room Bar");
 }
 if (officeGeo.tableWidth < 3 || officeGeo.tableWidth > 3.5) {
   fail(`Home office table width should be ~3–3.5 ft, got ${officeGeo.tableWidth}`);
@@ -568,15 +584,14 @@ if (
 ) {
   fail("Home office table must be smaller than the room.");
 }
-if (officeBuckets.displays.length !== 1) {
-  fail(`Home office should have exactly 1 display, got ${officeBuckets.displays.length}`);
+if (officeBuckets.displays.length !== 0) {
+  fail(`Home office should not include a wall display, got ${officeBuckets.displays.length}`);
 }
-if (officeBuckets.displays.some((d) => d.data_deviceid !== "displaySngl_2")) {
-  fail("Home office display must be displaySngl_2");
+if (officeBuckets.videoDevices.length !== 0) {
+  fail("Home office VRC must not include a Room Bar");
 }
-if (!officeBuckets.videoDevices.some((d) => d.data_deviceid === "roomBarPro")) {
-  fail("Home office VRC must include roomBarPro");
-}
+const officeDeskPro = vrcItemList(officeVrc).find((item) => item.data_deviceid === "webexDeskProG2");
+if (!officeDeskPro) fail("Home office VRC must include webexDeskProG2");
 const officeChairs = officeBuckets.chairs.filter((c) => (c.data_deviceid ?? "") === "chair");
 const officeWallChairs = officeBuckets.chairs.filter((c) =>
   (c.data_deviceid ?? "").startsWith("wallChairs"),
@@ -585,10 +600,9 @@ if (officeWallChairs.length > 0) fail("Home office must not emit wallChairs rows
 if (officeChairs.length < 1 || officeChairs.length > 2) {
   fail(`Home office chairs should be 1–2, got ${officeChairs.length}`);
 }
-const officeDisplay = officeBuckets.displays[0];
 for (const chair of officeChairs) {
-  if ((Number(chair.y) || 0) <= (Number(officeDisplay?.y) || 0) + 0.8) {
-    fail(`Office chair overlaps display wall: y=${chair.y} displayY=${officeDisplay?.y}`);
+  if ((Number(chair.y) || 0) <= (Number(officeDeskPro?.y) || 0) + 0.4) {
+    fail(`Office chair overlaps the Desk Pro: y=${chair.y} deskY=${officeDeskPro?.y}`);
   }
   if (!itemInsideRoom(chair, officeVrc.room.roomWidth, officeVrc.room.roomLength, true)) {
     fail(`Office chair outside room: x=${chair.x} y=${chair.y}`);

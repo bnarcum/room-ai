@@ -416,6 +416,7 @@ export function buildWebexDesignerRoomJson(
   const offsets = screenCenterOffsets(screenCount, span, screenBox.width);
 
   const customObjects: Record<string, unknown>[] = [];
+  const personal = isPersonalWorkspace(analysis.roomSummary.likelyUse);
 
   customObjects.push({
     id: "rai-table",
@@ -428,29 +429,49 @@ export function buildWebexDesignerRoomJson(
     height: TABLE_TOP_Y,
   });
 
-  customObjects.push({
-    id: "rai-roombar",
-    objectType: "videoDevice",
-    model: videoDeviceModel(layoutKind),
-    color: "dark",
-    position: [mount.x, barY, mount.z],
-    rotation: [0, mount.yaw, 0],
-  });
-
-  roles.forEach((role, i) => {
-    const offset = offsets[i] ?? 0;
-    const x = mount.along === "x" ? round3(mount.x + offset) : mount.x;
-    const z = mount.along === "z" ? round3(mount.z + offset) : mount.z;
+  if (personal) {
+    // Huddle preset for a home office is a Desk Pro on the table. Desk-family
+    // devices are the screen, so a wall display and Room Bar would double it.
+    const inset = 0.15;
+    const alongZ = Math.abs(rotateTableY) < 0.01;
     customObjects.push({
-      id: screenCount === 1 ? "rai-screen" : `rai-screen-${i + 1}`,
-      objectType: "screen",
-      position: [x, screenCenterY, z],
-      rotation: [0, mount.yaw, 0],
-      scale: [screenScale, screenScale, screenScale],
-      size: screenInch,
-      role,
+      id: "rai-desk-pro",
+      objectType: "videoDevice",
+      model: "Desk Pro G2",
+      color: "dark",
+      size: 27,
+      mount: "desk",
+      role: "singleScreen",
+      position: alongZ
+        ? [0, TABLE_TOP_Y, round3(tableCenterZ - tableLen / 2 + inset)]
+        : [round3(-tableLen / 2 + inset), TABLE_TOP_Y, tableCenterZ],
+      rotation: [0, alongZ ? 0 : round3(Math.PI / 2), 0],
     });
-  });
+  } else {
+    customObjects.push({
+      id: "rai-roombar",
+      objectType: "videoDevice",
+      model: videoDeviceModel(layoutKind),
+      color: "dark",
+      position: [mount.x, barY, mount.z],
+      rotation: [0, mount.yaw, 0],
+    });
+
+    roles.forEach((role, i) => {
+      const offset = offsets[i] ?? 0;
+      const x = mount.along === "x" ? round3(mount.x + offset) : mount.x;
+      const z = mount.along === "z" ? round3(mount.z + offset) : mount.z;
+      customObjects.push({
+        id: screenCount === 1 ? "rai-screen" : `rai-screen-${i + 1}`,
+        objectType: "screen",
+        position: [x, screenCenterY, z],
+        rotation: [0, mount.yaw, 0],
+        scale: [screenScale, screenScale, screenScale],
+        size: screenInch,
+        role,
+      });
+    });
+  }
 
   if (includeTableMic(layoutKind)) {
     customObjects.push({
