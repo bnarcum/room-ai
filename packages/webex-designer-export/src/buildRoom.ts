@@ -221,9 +221,8 @@ function screenRoles(count: number): ScreenRole[] {
 
 /** Designer draws a screen from scale, not from `size`. Scale 1 is a 55" 16:9 panel. */
 const DESIGNER_BASE_SCREEN_IN = 55;
-/** Bottom of the glass when the video bar sits under the displays. */
+/** Bottom of the glass. The video bar sits on the top edge, matching the preset room. */
 const SCREEN_BOTTOM_M = 1.2;
-const BAR_BELOW_SCREEN_M = 0.11;
 
 /** Workspace Designer 16:9 box: width = 0.025 * inches * aspect / hypot(aspect, 1). */
 function designerScreenBox(diagonalInches: number): { width: number; height: number } {
@@ -409,7 +408,7 @@ export function buildWebexDesignerRoomJson(
   const screenBox = designerScreenBox(screenInch);
   const screenScale = round3(screenInch / DESIGNER_BASE_SCREEN_IN);
   const screenCenterY = round3(SCREEN_BOTTOM_M + screenBox.height / 2);
-  const barY = round3(SCREEN_BOTTOM_M - BAR_BELOW_SCREEN_M);
+  const barY = round3(SCREEN_BOTTOM_M + screenBox.height);
   const screenCount = resolveScreenCount(analysis, layoutKind);
   const roles = screenRoles(screenCount);
   const mount = frontWallMount(wm, lm, rotateTableY);

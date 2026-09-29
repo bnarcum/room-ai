@@ -326,8 +326,6 @@ function buildQuickSetupItems(params: {
   const videoY = round2(Math.max(0.15, Math.min(roomLength - 0.15, frntWallToTv - offset)));
   const videoX = round2(Math.max(0.15, Math.min(roomWidth - 0.15, roomWidth / 2)));
 
-  const videoZ =
-    unit === "feet" ? round2((900 / 1000) * FT_PER_M) : round2(900 / 1000);
   const displayVertM = 1010 / 1000 - 0.23;
   const displayZ =
     unit === "feet" ? round2(displayVertM * FT_PER_M) : round2(displayVertM);
@@ -355,11 +353,25 @@ function buildQuickSetupItems(params: {
     name: displayId === "displaySngl_2" ? "Single Display" : "Display",
   };
 
+  // Room Bar Pro is 960×90 mm. Sit it just in front of the display so the
+  // floor-plan icon is not covered, and raise it to the top of the glass.
+  const barWidthM = 0.96;
+  const barDepthM = 0.09;
+  const toUnit = unit === "feet" ? FT_PER_M : 1;
+  const displayHeightM =
+    (0.025 * tvDiag) / Math.sqrt(1 + (16 / 9) * (16 / 9));
+  const barY = round2(
+    Math.min(roomLength - 0.2, videoY + (barDepthM + 0.12) * toUnit),
+  );
+  const barZ = round2(displayZ + (displayHeightM / 2 + 0.06) * toUnit);
+
   const video: VrcCanvasItem = {
     x: videoX,
-    y: videoY,
+    y: barY,
     rotation: 0,
-    data_zPosition: videoZ,
+    width: round2(barWidthM * toUnit),
+    height: round2(barDepthM * toUnit),
+    data_zPosition: barZ,
     data_deviceid: "roomBarPro",
     data_layerId: LAYER0,
     id: crypto.randomUUID(),

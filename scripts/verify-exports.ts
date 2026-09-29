@@ -165,8 +165,11 @@ const dualBar = must(
   "Dual room missing video bar",
 );
 const dualBarY = (dualBar.position as number[])[1];
-if (dualBarY >= (dualYs[0] ?? 0)) {
-  fail(`Video bar should sit under the screens, bar y ${dualBarY}, screen y ${dualYs[0]}`);
+const screenTop = (dualYs[0] ?? 0) + (0.025 * 75) / Math.sqrt(1 + aspect * aspect) / 2;
+if (Math.abs(dualBarY - screenTop) > 0.02) {
+  fail(
+    `Video bar should sit on top of the screens (y ${screenTop.toFixed(3)}), got ${dualBarY}`,
+  );
 }
 
 const huddle = analysisFrom({
@@ -359,6 +362,15 @@ if (compactBuckets.displays.length < 1) fail("VRC displays.length must be >= 1")
 if (compactBuckets.chairs.length < 1) fail("VRC chairs.length must be >= 1");
 if (!compactBuckets.videoDevices.some((d) => d.data_deviceid === "roomBarPro")) {
   fail("VRC videoDevices must include roomBarPro");
+}
+const compactDisplay = compactBuckets.displays[0];
+const compactBar = compactBuckets.videoDevices[0];
+if (
+  compactDisplay &&
+  compactBar &&
+  (compactBar.y ?? 0) <= (compactDisplay.y ?? 0)
+) {
+  fail("Room bar should sit in front of the display on the floor plan");
 }
 if (compactBuckets.videoDevices.some((d) => d.data_deviceid === "roomBar")) {
   fail("Do not emit unverified roomBar data_deviceid; use roomBarPro");
