@@ -1,14 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type DragEvent, type KeyboardEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { SiteBrandLink } from "@/components/SiteBrand";
 import {
   DEMO_TOUR_ROOM_PHOTO,
   useTourDemo,
 } from "@/components/TourDemoContext";
 import { runClientRoomAnalysis } from "@/lib/runClientAnalysis";
+
+function isDroppedImage(file: File) {
+  return file.type.startsWith("image/") || file.type === "";
+}
 
 export default function Home() {
   const router = useRouter();
@@ -21,6 +25,7 @@ export default function Home() {
     "idle" | "uploading" | "error" | "done"
   >("idle");
   const [error, setError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const previewUrl = useMemo(() => {
     if (!file) return null;
@@ -64,137 +69,147 @@ export default function Home() {
     router.push("/results");
   }
 
-  return (
-    <div className="app-backdrop flex min-h-full flex-1 flex-col items-center px-4 py-8 text-[hsl(210_40%_96%)] sm:py-10">
-      <main className="w-full max-w-3xl">
-        <div className="mb-6 w-full sm:mb-8">
-          <SiteBrandLink
-            className="max-w-[min(100%,16rem)] sm:max-w-[20rem] md:max-w-[24rem] lg:max-w-[28rem]"
-            imageClassName="h-auto w-full"
-            sizes="(min-width: 1024px) 28rem, (min-width: 768px) 24rem, (min-width: 640px) 20rem, 16rem"
-          />
-        </div>
-        <div className="surface-card rounded-3xl p-7">
-          <div className="flex flex-col gap-2" id="tour-hero">
-            <h1 className="text-3xl font-semibold tracking-tight text-white">
-              Analyze a room
-            </h1>
-            <p className="copy-readable max-w-[48ch]">
-              Photo in. Size, seats, and five recs out.
-            </p>
-          </div>
+  function onDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragOver(false);
+    const dropped = event.dataTransfer.files?.[0];
+    if (dropped && isDroppedImage(dropped)) {
+      setFile(dropped);
+    }
+  }
 
-          <div className="mt-8 grid gap-8 md:grid-cols-2">
-            <div className="grid gap-4" id="tour-upload">
-              <label className="text-[15px] font-medium text-[hsl(210_40%_96%)]">
-                Room photo
-              </label>
+  function onDropKeyDown(event: KeyboardEvent<HTMLLabelElement>) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      document.getElementById("room-photo")?.click();
+    }
+  }
+
+  return (
+    <div className="home-apple">
+      <main className="home-shell">
+        <header className="results-topbar">
+          <Link href="/" className="results-wordmark">
+            SnapRoom
+          </Link>
+        </header>
+
+        <div className="home-headline" id="tour-hero">
+          <h1 className="results-headline-title">Analyze a room</h1>
+          <p className="results-headline-meta">
+            One photo. Directional size, seats, and five recs.
+          </p>
+        </div>
+
+        <div className="home-layout">
+          <div className="home-photo-col">
+            <div
+              id="tour-upload"
+              className={`home-drop${dragOver ? " is-over" : ""}${displayPreviewUrl ? " has-photo" : ""}`}
+              onDragOver={(event) => {
+                event.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={onDrop}
+            >
               <input
+                id="room-photo"
                 type="file"
                 accept="image/*"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="block w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.92)] px-3 py-2.5 text-[15px] text-[hsl(210_40%_96%)] outline-none transition-[box-shadow] file:mr-4 file:rounded-lg file:border-0 file:bg-[hsl(277_90%_65%/0.14)] file:px-3 file:py-2 file:text-[15px] file:font-semibold file:text-[hsl(210_40%_96%)] hover:file:bg-[hsl(277_90%_65%/0.22)] focus-visible:ring-2 focus-visible:ring-[hsl(277_90%_65%/0.45)]"
+                onChange={(event) => {
+                  setFile(event.target.files?.[0] ?? null);
+                }}
+                className="home-file-input"
               />
-              {tourActive && !file ? (
-                <p className="text-[13px] text-[hsl(215_20%_68%)]">
-                  Demo photo loaded —{" "}
-                  <span className="font-medium text-[hsl(215_20%_82%)]">
-                    conference-room.png
-                  </span>
-                </p>
-              ) : null}
-
-              <div className="grid gap-2" id="tour-options">
-                <label
-                  htmlFor="ceiling-height"
-                  className="text-[15px] font-medium text-[hsl(210_40%_96%)]"
-                >
-                  Ceiling height (optional)
-                </label>
-                <input
-                  id="ceiling-height"
-                  type="text"
-                  value={ceilingHeight}
-                  onChange={(e) => setCeilingHeight(e.target.value)}
-                  placeholder="e.g. 9 ft or 2.7 m"
-                  autoComplete="off"
-                  className="w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.92)] px-3 py-2.5 text-[15px] text-[hsl(210_40%_96%)] placeholder:text-[hsl(215_20%_55%)] outline-none transition-[box-shadow] focus-visible:ring-2 focus-visible:ring-[hsl(277_90%_65%/0.45)]"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <label className="text-[15px] font-medium text-[hsl(210_40%_96%)]">
-                  Preferred unit
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setUnit("feet")}
-                    className={`rounded-xl border px-4 py-2 text-[15px] font-medium transition-colors ${
-                      unit === "feet"
-                        ? "border-[hsl(277_90%_65%/0.55)] bg-[hsl(277_90%_65%/0.14)] text-[hsl(210_40%_98%)] shadow-[0_0_28px_-8px_hsl(277_90%_65%/0.42)]"
-                        : "border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] text-[hsl(215_20%_78%)] hover:border-[hsl(217_33%_35%)] hover:text-[hsl(210_40%_96%)]"
-                    }`}
-                  >
-                    Feet
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUnit("meters")}
-                    className={`rounded-xl border px-4 py-2 text-[15px] font-medium transition-colors ${
-                      unit === "meters"
-                        ? "border-[hsl(277_90%_65%/0.55)] bg-[hsl(277_90%_65%/0.14)] text-[hsl(210_40%_98%)] shadow-[0_0_28px_-8px_hsl(277_90%_65%/0.42)]"
-                        : "border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] text-[hsl(215_20%_78%)] hover:border-[hsl(217_33%_35%)] hover:text-[hsl(210_40%_96%)]"
-                    }`}
-                  >
-                    Meters
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                id="tour-analyze"
-                onClick={onAnalyze}
-                disabled={isAnalyzing}
-                className="btn-accent mt-1 inline-flex items-center justify-center rounded-xl px-5 py-3 text-[15px] font-semibold disabled:cursor-not-allowed"
+              <label
+                htmlFor="room-photo"
+                className="home-drop-hit"
+                tabIndex={0}
+                onKeyDown={onDropKeyDown}
               >
-                {isAnalyzing ? "Analyzing…" : "Analyze photo"}
-              </button>
-
-              {error ? (
-                <p
-                  className="rounded-xl border border-red-500/25 bg-red-950/40 px-3 py-2 text-[15px] leading-snug text-red-200"
-                  role="alert"
-                >
-                  {error}
-                </p>
-              ) : null}
-
-            </div>
-
-            <div className="grid gap-3">
-              <div className="text-[15px] font-medium text-[hsl(210_40%_96%)]">
-                Preview
-              </div>
-              <div className="aspect-video w-full overflow-hidden rounded-2xl border border-[hsl(217_33%_25%)] bg-black/45 ring-1 ring-[hsl(217_33%_22%/0.6)]">
                 {displayPreviewUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={displayPreviewUrl}
                     alt="Selected room photo preview"
-                    className="h-full w-full object-cover"
+                    className="home-preview-img"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center px-4 text-center text-[15px] leading-relaxed text-[hsl(215_20%_68%)]">
-                    Choose a photo to preview it here.
-                  </div>
+                  <span className="home-drop-copy">
+                    <span className="home-drop-title">Drop a room photo</span>
+                    <span className="home-drop-hint">or click to choose</span>
+                  </span>
                 )}
-              </div>
-              <div className="copy-muted" id="tour-privacy">
-                Photo is sent only for this analysis.
+              </label>
+            </div>
+            {file ? (
+              <p className="home-filename">{file.name}</p>
+            ) : tourActive ? (
+              <p className="home-filename">conference-room.png</p>
+            ) : null}
+          </div>
+
+          <div className="home-controls">
+            <div className="home-field" id="tour-options">
+              <label htmlFor="ceiling-height" className="home-label">
+                Ceiling height{" "}
+                <span className="home-optional">optional</span>
+              </label>
+              <input
+                id="ceiling-height"
+                type="text"
+                value={ceilingHeight}
+                onChange={(event) => setCeilingHeight(event.target.value)}
+                placeholder="9 ft or 2.7 m"
+                autoComplete="off"
+                className="home-input"
+              />
+
+              <div
+                className="home-units"
+                role="group"
+                aria-label="Preferred unit"
+              >
+                <button
+                  type="button"
+                  onClick={() => setUnit("feet")}
+                  className={unit === "feet" ? "is-active" : undefined}
+                >
+                  Feet
+                </button>
+                <span className="home-units-sep" aria-hidden="true">
+                  |
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setUnit("meters")}
+                  className={unit === "meters" ? "is-active" : undefined}
+                >
+                  Meters
+                </button>
               </div>
             </div>
+
+            <button
+              type="button"
+              id="tour-analyze"
+              onClick={onAnalyze}
+              disabled={isAnalyzing}
+              className="results-btn results-btn-solid home-analyze"
+            >
+              {isAnalyzing ? "Analyzing…" : "Analyze"}
+            </button>
+
+            {error ? (
+              <p className="home-error" role="alert">
+                {error}
+              </p>
+            ) : null}
+
+            <p className="home-privacy" id="tour-privacy">
+              Photo is sent only for this analysis.
+            </p>
           </div>
         </div>
       </main>
