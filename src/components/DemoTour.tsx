@@ -228,7 +228,7 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
     await new Promise((resolve) => {
       window.setTimeout(resolve, DEMO_TOUR_ANALYZE_MS);
     });
-    seedDemoAnalysisForTour();
+    await seedDemoAnalysisForTour();
     const nextStep = ANALYZE_STEP_INDEX + 1;
     setStepIdx(nextStep);
     persist(true, nextStep);
@@ -276,6 +276,9 @@ export function DemoTourShell({ children }: { children: ReactNode }) {
     if (saved?.active && saved.version === DEMO_TOUR_VERSION) {
       setStepIdx(saved.step);
       setActive(true);
+      if (saved.step > ANALYZE_STEP_INDEX) {
+        void seedDemoAnalysisForTour();
+      }
     }
   }, []);
 

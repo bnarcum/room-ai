@@ -36,6 +36,16 @@ export function loadRoomPhotoPreview(): string | null {
   }
 }
 
+export function clearRoomPhotoPreviews(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(ROOM_PHOTO_STORAGE_KEY);
+    sessionStorage.removeItem(ROOM_EXTRA_PHOTOS_STORAGE_KEY);
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
 export function saveRoomPhotoPreview(dataUrl: string): boolean {
   if (typeof window === "undefined") return false;
   try {

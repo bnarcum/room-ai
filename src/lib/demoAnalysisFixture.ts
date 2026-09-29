@@ -1,5 +1,11 @@
 import type { RoomAnalysis } from "@/lib/roomAnalysis";
-import { saveRoomAnalysisPayload } from "@/lib/resultStorage";
+import {
+  clearRoomPhotoPreviews,
+  saveRoomAnalysisPayload,
+  saveRoomPhotoPreview,
+} from "@/lib/resultStorage";
+
+const DEMO_CONFERENCE_PHOTO = "/demo/conference-room.png";
 
 export type DemoAnalysisEnvelope = {
   ok: true;
@@ -108,6 +114,30 @@ export const DEMO_TOUR_ANALYSIS: DemoAnalysisEnvelope = {
   },
 };
 
-export function seedDemoAnalysisForTour(): boolean {
-  return saveRoomAnalysisPayload(DEMO_TOUR_ANALYSIS);
+async function demoConferencePhotoDataUrl(): Promise<string | null> {
+  try {
+    const response = await fetch(DEMO_CONFERENCE_PHOTO);
+    if (!response.ok) return null;
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8;
+    const blob = new Blob([bytes], { type: isJpeg ? "image/jpeg" : "image/png" });
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () =>
+        resolve(typeof reader.result === "string" ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** Replace any prior analysis photo with the bundled conference image. */
+export async function seedDemoAnalysisForTour(): Promise<boolean> {
+  const saved = saveRoomAnalysisPayload(DEMO_TOUR_ANALYSIS);
+  clearRoomPhotoPreviews();
+  const dataUrl = await demoConferencePhotoDataUrl();
+  if (dataUrl?.startsWith("data:image/")) saveRoomPhotoPreview(dataUrl);
+  return saved;
 }

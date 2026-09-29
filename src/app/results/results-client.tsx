@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ResultsPhotoHero } from "@/components/ResultsPhotoHero";
+import { DEMO_TOUR_ROOM_PHOTO, useTourDemo } from "@/components/TourDemoContext";
 import {
   COLLAB_EXPERIENCE_URL,
   buildVideoRoomCalculatorJson,
@@ -72,6 +73,7 @@ const REC_ROWS = [
 
 export default function ResultsClient() {
   const pathname = usePathname();
+  const { active: tourActive } = useTourDemo();
   const [copiedJson, setCopiedJson] = useState(false);
   const [exportTip, setExportTip] = useState<ReactNode>(null);
   const [decoded, setDecoded] = useState<AnalyzeEnvelope | null>(null);
@@ -98,8 +100,8 @@ export default function ResultsClient() {
         const stored = loadRoomAnalysisPayload();
         setDecoded(stored as AnalyzeEnvelope | null);
       }
-      const storedPhoto = loadRoomPhotoPreview();
-      const storedExtras = loadRoomExtraPhotoPreviews();
+      const storedPhoto = tourActive ? DEMO_TOUR_ROOM_PHOTO : loadRoomPhotoPreview();
+      const storedExtras = tourActive ? [] : loadRoomExtraPhotoPreviews();
       setPhotoPreview(storedPhoto);
       setExtraPreviews(storedExtras);
       setHeroSrc(storedPhoto);
@@ -108,7 +110,7 @@ export default function ResultsClient() {
     } finally {
       setReady(true);
     }
-  }, [pathname]);
+  }, [pathname, tourActive]);
 
   const pretty = useMemo(() => {
     if (!decoded) return null;
