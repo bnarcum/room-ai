@@ -22,22 +22,14 @@ export const FOCUS_REGION_KEYS = [
   "network",
 ] as const satisfies readonly FocusRegionKey[];
 
-const HOME_FALLBACKS: Record<FocusRegionKey, FocusBox> = {
-  display: { x: 0.02, y: 0.08, w: 0.48, h: 0.55 },
-  camera: { x: 0.55, y: 0.12, w: 0.4, h: 0.45 },
-  acoustics: { x: 0.35, y: 0.25, w: 0.35, h: 0.6 },
-  lighting: { x: 0.55, y: 0, w: 0.45, h: 0.28 },
-  network: { x: 0.62, y: 0.35, w: 0.32, h: 0.4 },
-};
-
-/** Conference / classroom: display wall, table, ceiling, AV cluster. */
-const CONFERENCE_FALLBACKS: Record<FocusRegionKey, FocusBox> = {
-  display: { x: 0.3, y: 0.04, w: 0.4, h: 0.36 },
-  camera: { x: 0.38, y: 0.06, w: 0.24, h: 0.2 },
-  acoustics: { x: 0.22, y: 0.4, w: 0.56, h: 0.42 },
-  lighting: { x: 0.1, y: 0, w: 0.8, h: 0.26 },
-  network: { x: 0.34, y: 0.5, w: 0.32, h: 0.28 },
-};
+/** Drop boxes that cover most of the frame — those are guesses, not objects. */
+export function isUsableFocusBox(box: FocusBox): boolean {
+  const area = box.w * box.h;
+  if (area > 0.42) return false;
+  if (box.w > 0.82 && box.h > 0.38) return false;
+  if (box.h > 0.82 && box.w > 0.38) return false;
+  return true;
+}
 
 function num(v: unknown): number | null {
   if (typeof v === "number" && Number.isFinite(v)) return v;
@@ -69,7 +61,8 @@ export function clampFocusBox(raw: unknown): FocusBox | undefined {
   const w = Math.min(unitInterval(w0), 1 - x);
   const h = Math.min(unitInterval(h0), 1 - y);
   if (w < 0.02 || h < 0.02) return undefined;
-  return { x, y, w, h };
+  const box = { x, y, w, h };
+  return isUsableFocusBox(box) ? box : undefined;
 }
 
 export function coerceFocusRegions(raw: unknown): FocusRegions | undefined {
@@ -83,26 +76,10 @@ export function coerceFocusRegions(raw: unknown): FocusRegions | undefined {
   return Object.keys(out).length ? out : undefined;
 }
 
-export function isPersonalFocusLayout(likelyUse: string): boolean {
-  return likelyUse === "home" || likelyUse === "small-office";
-}
-
-export function fallbackFocusRegions(
-  likelyUse: string,
-  occupancy = 0,
-): Record<FocusRegionKey, FocusBox> {
-  if (isPersonalFocusLayout(likelyUse)) return HOME_FALLBACKS;
-  if (likelyUse === "unknown" && occupancy >= 1 && occupancy <= 2) {
-    return HOME_FALLBACKS;
-  }
-  return CONFERENCE_FALLBACKS;
-}
-
 export function resolveFocusRegion(
   key: FocusRegionKey,
   focusRegions: FocusRegions | undefined,
-  likelyUse: string,
-  occupancy = 0,
-): FocusBox {
-  return focusRegions?.[key] ?? fallbackFocusRegions(likelyUse, occupancy)[key];
+): FocusBox | null {
+  const box = focusRegions?.[key];
+  return box && isUsableFocusBox(box) ? box : null;
 }

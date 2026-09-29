@@ -231,7 +231,7 @@ export async function POST(request: Request) {
         "You are a room-setup expert for collaboration spaces.",
         "You will be given one or more photos of the same room and optional reference context.",
         "The FIRST image is the PRIMARY view (hero). Later images are extra angles for context — use all views and estimate from the combined evidence.",
-        "focusRegions boxes are relative to the PRIMARY photo only (the first image). Omit a key if that object is not visible in the primary photo.",
+        "focusRegions boxes are relative to the PRIMARY photo only (the first image). Each box must tightly wrap ONE visible object. Omit a key rather than guessing or boxing half the room.",
         "Photos may show full conference rooms, home offices, compact corners, standing desks, mixed furniture, or partial views — still produce best-effort dimensions and constraints.",
         "Photos may be real-world camera shots (glare, shadows, clutter, motion blur, odd angles) or clean marketing/render images — treat both the same: estimate anyway; never refuse analysis.",
         "Size the room as directional ranges (min/max) plus midpoints. Do not present a single L×W×H as if it were surveyed.",
@@ -250,7 +250,7 @@ export async function POST(request: Request) {
         "- Each string is ONE short sentence (max ~90 characters). Do not paste raw URLs into the sentence.",
         "- If you cite Cisco or Webex guidance, append markdown only: [Cisco guidance](https://www.cisco.com/c/en/us/products/collaboration-endpoints/index.html).",
         "- Ground advice in what is visible in the photo or render; where visibility is limited, say so and suggest a safe default.",
-        "- Add focusRegions boxes only for objects actually in the PRIMARY photo (TV, monitor, chair, lights, window, desk). Coordinates are 0–1 from the top-left of the first image. Omit a key if that object is not visible there.",
+        "- focusRegions: one tight box per key, 0–1 from the top-left of the PRIMARY photo, typically 8–30% of the frame. display = the visible monitor/TV bezel only. camera = the webcam, or the top of that display if no camera is visible. lighting = the lamp or window the lighting rec is about (pick the dominant one). acoustics = the chair / talk position. network = the PC or desk cable cluster. Never box a whole wall, the entire desk run, or empty space. Omit a key if that object is not in the primary photo.",
         "- Do not repeat one generic sentence across every category.",
         "",
         rubric,
@@ -270,7 +270,7 @@ export async function POST(request: Request) {
       : null,
     isWorkspaceDesignerRender
       ? "Task: Evaluate this Workspace Designer render for hybrid-meeting readiness; estimate dimension ranges from depicted geometry and scale cues; fill observedItems with every visible collaboration-relevant object (displays, codecs/bars, cameras, seating, laptops, plants, decor). Name items consistently when you reference them in recommendations or quickChecklist."
-      : "Task: Estimate directional length/width/height ranges plus midpoints. Classify home/small-office vs conference from furniture (standing desk + consumer TV + one chair = home or small-office). occupancy is visible chairs only. Fill observedItems from the photo(s). Estimate primaryScreenDiagonalInches. Write short camera, display, audio, lighting, and network recommendations with optional [Cisco guidance](url) markdown — no raw URLs. Return focusRegions boxes (0–1, top-left of the PRIMARY photo) for the TV/monitor, camera/webcam, chair, lights/window, and desk/network cluster when those objects are visible in the first image.",
+      : "Task: Estimate directional length/width/height ranges plus midpoints. Classify home/small-office vs conference from furniture (standing desk + consumer TV + one chair = home or small-office). occupancy is visible chairs only. Fill observedItems from the photo(s). Estimate primaryScreenDiagonalInches. Write short camera, display, audio, lighting, and network recommendations with optional [Cisco guidance](url) markdown — no raw URLs. Return tight focusRegions boxes (0–1, top-left of the PRIMARY photo) only when the object is visible: display=monitor/TV, camera=webcam or top of that display, lighting=the lamp or window you are advising about, acoustics=chair, network=PC/desk cluster. Omit a key instead of guessing.",
   ]
     .filter(Boolean)
     .join("\n");

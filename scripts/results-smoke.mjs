@@ -243,18 +243,8 @@ async function main() {
     throw new Error("Spotlight should be hidden until hover/click");
   }
   await page.locator('[data-testid="rec-Camera"]').hover();
-  await page.waitForSelector('[data-testid="photo-spotlight"]', { timeout: 5_000 });
-  const fallbackRegion = await page
-    .locator('[data-testid="photo-spotlight"]')
-    .getAttribute("data-region");
-  if (fallbackRegion !== "camera") {
-    throw new Error(`Fallback spotlight region was ${fallbackRegion}`);
-  }
-  const fallbackCaption = await page
-    .locator('[data-testid="photo-spotlight-caption"]')
-    .textContent();
-  if (fallbackCaption?.trim() !== "Camera") {
-    throw new Error(`Fallback caption was ${fallbackCaption}`);
+  if ((await page.locator('[data-testid="photo-spotlight"]').count()) !== 0) {
+    throw new Error("Without model focusRegions, hover must not invent a spotlight");
   }
 
   const boxed = structuredClone(FIXTURE);

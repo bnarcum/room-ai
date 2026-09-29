@@ -136,12 +136,7 @@ export default function ResultsClient() {
   const activeKey = hoveredKey ?? pinnedKey;
   const activeRegion =
     analysis && activeKey && showingPrimary
-      ? resolveFocusRegion(
-          activeKey,
-          analysis.focusRegions,
-          analysis.roomSummary.likelyUse,
-          analysis.roomSummary.occupancy,
-        )
+      ? resolveFocusRegion(activeKey, analysis.focusRegions)
       : null;
 
   async function onCopyAnalysisJson() {

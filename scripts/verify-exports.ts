@@ -642,22 +642,23 @@ if (!coercedRegions?.display || coercedRegions.camera) {
   fail("coerceFocusRegions should keep valid boxes and drop invalid ones");
 }
 
-const homeCam = resolveFocusRegion("camera", undefined, "home", 1);
-if (homeCam.x !== 0.55 || homeCam.y !== 0.12) {
-  fail(`Home camera fallback mismatch: ${JSON.stringify(homeCam)}`);
+const homeCam = resolveFocusRegion("camera", undefined);
+if (homeCam !== null) {
+  fail(`Missing model box must not invent a home-office spotlight, got ${JSON.stringify(homeCam)}`);
 }
-const confDisplay = resolveFocusRegion("display", undefined, "conference", 13);
-if (confDisplay.x !== 0.3 || confDisplay.y !== 0.04) {
-  fail(`Conference display fallback mismatch: ${JSON.stringify(confDisplay)}`);
+const confDisplay = resolveFocusRegion("display", undefined);
+if (confDisplay !== null) {
+  fail(`Missing model box must not invent a conference spotlight, got ${JSON.stringify(confDisplay)}`);
 }
-const pinned = resolveFocusRegion(
-  "display",
-  { display: { x: 0.1, y: 0.2, w: 0.3, h: 0.4 } },
-  "home",
-  1,
-);
-if (pinned.x !== 0.1 || pinned.w !== 0.3) {
-  fail("Model focusRegions should win over fallbacks");
+const vague = clampFocusBox({ x: 0.02, y: 0.02, w: 0.95, h: 0.9 });
+if (vague) {
+  fail(`Whole-frame boxes should be dropped, got ${JSON.stringify(vague)}`);
+}
+const pinned = resolveFocusRegion("display", {
+  display: { x: 0.1, y: 0.2, w: 0.3, h: 0.4 },
+});
+if (!pinned || pinned.x !== 0.1 || pinned.w !== 0.3) {
+  fail("Model focusRegions should be used when present");
 }
 
 console.log("OK: VRC and Designer exports follow the estimate");
