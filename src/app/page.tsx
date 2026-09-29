@@ -14,6 +14,30 @@ function isDroppedImage(file: File) {
   return file.type.startsWith("image/") || file.type === "";
 }
 
+const ANALYZE_STAGES = [
+  "Reading the walls",
+  "Sizing the room",
+  "Matching gear",
+] as const;
+
+function RoomWireframe() {
+  return (
+    <svg
+      className="home-wireframe"
+      viewBox="0 0 160 110"
+      aria-hidden="true"
+    >
+      <g fill="none" stroke="currentColor" strokeWidth="1.25">
+        <path d="M18 90 L18 30 L80 12 L142 30 L142 90 Z" />
+        <path d="M18 90 L80 102 L142 90" />
+        <path d="M80 12 L80 102" />
+        <path d="M48 90 L48 50 L68 44 L68 90" />
+        <rect x="98" y="36" width="26" height="16" rx="1" />
+      </g>
+    </svg>
+  );
+}
+
 export default function Home() {
   const router = useRouter();
   const { active: tourActive, analyzing: tourAnalyzing, canDemoAnalyze, startDemoAnalyze } =
@@ -147,12 +171,19 @@ export default function Home() {
                 setDragOver(true);
               }}
               onDragLeave={() => setDragOver(false)}
-              onDrop={onDrop}
+              onDrop={(event) => {
+                if (isAnalyzing) {
+                  event.preventDefault();
+                  return;
+                }
+                onDrop(event);
+              }}
             >
               <input
                 id="room-photo"
                 type="file"
                 accept="image/*"
+                disabled={isAnalyzing}
                 onChange={(event) => {
                   setFile(event.target.files?.[0] ?? null);
                 }}
@@ -173,17 +204,43 @@ export default function Home() {
                   />
                 ) : (
                   <span className="home-drop-copy">
+                    <RoomWireframe />
                     <span className="home-drop-title">Drop a room photo</span>
                     <span className="home-drop-hint">or click to choose</span>
                   </span>
                 )}
               </label>
+              {isAnalyzing ? (
+                <div className="home-ritual" role="status" aria-live="polite">
+                  <ol className="home-ritual-steps">
+                    {ANALYZE_STAGES.map((label) => (
+                      <li key={label}>{label}</li>
+                    ))}
+                  </ol>
+                </div>
+              ) : null}
             </div>
             {file ? (
               <p className="home-filename">{file.name}</p>
             ) : tourActive ? (
               <p className="home-filename">conference-room.png</p>
-            ) : null}
+            ) : (
+              <>
+                <input
+                  id="room-photo-camera"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={(event) => {
+                    setFile(event.target.files?.[0] ?? null);
+                  }}
+                  className="home-file-input"
+                />
+                <label className="home-camera" htmlFor="room-photo-camera">
+                  Use camera
+                </label>
+              </>
+            )}
             {file ? (
               <div className="home-angles" data-testid="home-extra-angles">
                 {extraFiles.map((extra, index) => (

@@ -271,6 +271,16 @@ export default function ResultsClient() {
                   src={displayHero}
                   region={showingPrimary ? activeRegion : null}
                   captionKey={showingPrimary ? activeKey : null}
+                  size={
+                    showingPrimary
+                      ? {
+                          length: analysis.dimensions.length,
+                          width: analysis.dimensions.width,
+                          height: analysis.dimensions.height,
+                          unit: analysis.dimensions.unit,
+                        }
+                      : null
+                  }
                   onClear={() => {
                     setPinnedKey(null);
                     setHoveredKey(null);

@@ -98,6 +98,15 @@ async function main() {
   if (!homeText?.includes("Analyze")) {
     throw new Error("Home page is missing Analyze");
   }
+  const homeBg = await page.locator(".home-apple").evaluate((el) => {
+    return getComputedStyle(el).backgroundColor;
+  });
+  if (homeBg !== "rgb(7, 24, 45)") {
+    throw new Error(`Home should use seller navy, got ${homeBg}`);
+  }
+  if ((await page.locator('img[alt="Cisco"], img[src*="cisco"]').count()) > 0) {
+    throw new Error("Cisco logo must not appear on home");
+  }
   if (homeText.toLowerCase().includes("quick estimate") && homeText.toLowerCase().includes("classic")) {
     throw new Error("Home should not fork to quick vs classic");
   }
@@ -226,6 +235,10 @@ async function main() {
   );
   await page.goto(`${baseUrl}/results`, { waitUntil: "domcontentloaded" });
   await page.waitForSelector('[data-testid="results-photo"]', { timeout: 10_000 });
+  await page.waitForFunction(() => {
+    const proof = document.querySelector('[data-testid="results-size-proof"]');
+    return proof?.textContent?.includes("24 × 16 × 9 ft") ?? false;
+  }, undefined, { timeout: 5_000 });
   if ((await page.locator('[data-testid="photo-spotlight"]').count()) !== 0) {
     throw new Error("Spotlight should be hidden until hover/click");
   }

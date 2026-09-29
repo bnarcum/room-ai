@@ -3,6 +3,7 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { FocusBox, FocusRegionKey } from "@/lib/focusRegions";
 import { containedImageRect } from "@/lib/containedImageRect";
+import { round1 } from "@/lib/roomSizing";
 
 const CAPTIONS: Record<FocusRegionKey, string> = {
   camera: "Camera",
@@ -21,11 +22,19 @@ type OverlayRect = {
 
 const EMPTY_OVERLAY: OverlayRect = { left: 0, top: 0, width: 0, height: 0 };
 
+type RoomSizeProof = {
+  length: number;
+  width: number;
+  height: number;
+  unit: "feet" | "meters";
+};
+
 type ResultsPhotoHeroProps = {
   src: string;
   region: FocusBox | null;
   captionKey: FocusRegionKey | null;
   onClear: () => void;
+  size?: RoomSizeProof | null;
 };
 
 function sameRect(a: OverlayRect, b: OverlayRect) {
@@ -42,7 +51,13 @@ export function ResultsPhotoHero({
   region,
   captionKey,
   onClear,
+  size,
 }: ResultsPhotoHeroProps) {
+  const sizeLabel = size
+    ? `${round1(size.length)} × ${round1(size.width)} × ${round1(size.height)} ${
+        size.unit === "meters" ? "m" : "ft"
+      }`
+    : null;
   const boxRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [overlay, setOverlay] = useState<OverlayRect>(EMPTY_OVERLAY);
@@ -123,6 +138,12 @@ export function ResultsPhotoHero({
           </div>
         ) : null}
       </div>
+      {sizeLabel ? (
+        <div className="results-size-proof" data-testid="results-size-proof">
+          <span className="results-size-proof-rule" aria-hidden="true" />
+          <span>{sizeLabel}</span>
+        </div>
+      ) : null}
     </div>
   );
 }
