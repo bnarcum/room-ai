@@ -258,6 +258,63 @@ async function main() {
   );
   await page.goto(`${baseUrl}/results`, { waitUntil: "domcontentloaded" });
   await page.waitForSelector('[data-testid="results-photo"]', { timeout: 10_000 });
+  const objectFit = await page
+    .locator('[data-testid="results-photo"]')
+    .evaluate((el) => getComputedStyle(el).objectFit);
+  if (objectFit !== "contain") {
+    throw new Error(`Results photo object-fit was ${objectFit}, expected contain`);
+  }
+  await page.waitForFunction(() => {
+    const overlay = document.querySelector('[data-testid="results-photo-overlay"]');
+    return overlay instanceof HTMLElement && overlay.getBoundingClientRect().width > 0;
+  }, undefined, { timeout: 5_000 });
+  const overlayAlign = await page.evaluate(() => {
+    const box = document.querySelector('[data-testid="results-photo-frame"]');
+    const img = document.querySelector('[data-testid="results-photo"]');
+    const overlay = document.querySelector('[data-testid="results-photo-overlay"]');
+    if (
+      !(box instanceof HTMLElement) ||
+      !(img instanceof HTMLImageElement) ||
+      !(overlay instanceof HTMLElement)
+    ) {
+      return { ok: false, reason: "missing photo overlay nodes" };
+    }
+    const boxW = box.clientWidth;
+    const boxH = box.clientHeight;
+    const scale = Math.min(boxW / img.naturalWidth, boxH / img.naturalHeight);
+    const width = img.naturalWidth * scale;
+    const height = img.naturalHeight * scale;
+    const left = (boxW - width) / 2;
+    const top = (boxH - height) / 2;
+    const style = overlay.style;
+    return {
+      ok:
+        Math.abs(Number.parseFloat(style.left) - left) < 1.5 &&
+        Math.abs(Number.parseFloat(style.top) - top) < 1.5 &&
+        Math.abs(Number.parseFloat(style.width) - width) < 1.5 &&
+        Math.abs(Number.parseFloat(style.height) - height) < 1.5,
+      left: style.left,
+      top: style.top,
+      width: style.width,
+      height: style.height,
+      expected: { left, top, width, height },
+    };
+  });
+  if (!overlayAlign.ok) {
+    throw new Error(`Spotlight overlay missed the contained image: ${JSON.stringify(overlayAlign)}`);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForFunction(() => {
+    const overlay = document.querySelector('[data-testid="results-photo-overlay"]');
+    return overlay instanceof HTMLElement && overlay.getBoundingClientRect().width > 0;
+  }, undefined, { timeout: 5_000 });
+  const mobileFit = await page
+    .locator('[data-testid="results-photo"]')
+    .evaluate((el) => getComputedStyle(el).objectFit);
+  if (mobileFit !== "contain") {
+    throw new Error(`Mobile photo object-fit was ${mobileFit}, expected contain`);
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
   await page.locator('[data-testid="rec-Display"]').click();
   const spot = page.locator('[data-testid="photo-spotlight"]');
   await spot.waitFor({ timeout: 5_000 });
