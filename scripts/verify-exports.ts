@@ -17,6 +17,11 @@ import {
 } from "../src/lib/recommendationDisplay";
 import { roomAnalysisSchema, type RoomAnalysis } from "../src/lib/roomAnalysis";
 import {
+  clampFocusBox,
+  coerceFocusRegions,
+  resolveFocusRegion,
+} from "../src/lib/focusRegions";
+import {
   designerSeatCount,
   effectiveSeatCount,
   resultsHeadline,
@@ -386,7 +391,10 @@ if (officeSeats !== 1) fail(`Home office occupancy 1 should be 1 seat, got ${off
 if (officeDesignerSeats !== 2) {
   fail(`Designer seats for home office should be 2, got ${officeDesignerSeats}`);
 }
-if (officeHeadline !== "Home office · 1 seat · 12 × 10 ft" && !officeHeadline.startsWith("Home office · 1 seat")) {
+if (
+  !officeHeadline.startsWith("Home office · 1 seat") ||
+  !officeHeadline.includes("about 10 × 12")
+) {
   fail(`Unexpected home office headline: ${officeHeadline}`);
 }
 if (officeUrl !== "https://designer.webex.com/#/room/huddleroom/summary?1&rt=Huddle%20Room&ch=2") {
@@ -552,6 +560,46 @@ if (parsedMd.href !== CISCO_GUIDANCE_URL) {
 }
 if (parsedMd.text.includes("http") || parsedMd.text.includes("Cisco guidance")) {
   fail(`Markdown should strip from sentence: ${parsedMd.text}`);
+}
+
+const clamped = clampFocusBox({ x: -0.2, y: 0.9, w: 0.8, h: 0.4 });
+if (!clamped || clamped.x !== 0 || clamped.y !== 0.9 || clamped.w !== 0.8 || clamped.h < 0.09) {
+  fail(`clampFocusBox should clamp to 0–1, got ${JSON.stringify(clamped)}`);
+}
+const percent = clampFocusBox({ x: 10, y: 20, w: 30, h: 40 });
+if (
+  !percent ||
+  Math.abs(percent.x - 0.1) > 0.001 ||
+  Math.abs(percent.y - 0.2) > 0.001 ||
+  Math.abs(percent.w - 0.3) > 0.001 ||
+  Math.abs(percent.h - 0.4) > 0.001
+) {
+  fail(`0–100 boxes should scale to 0–1, got ${JSON.stringify(percent)}`);
+}
+const coercedRegions = coerceFocusRegions({
+  display: { x: 0.02, y: 0.08, w: 0.48, h: 0.55 },
+  camera: { x: "nope", y: 0, w: 1, h: 1 },
+});
+if (!coercedRegions?.display || coercedRegions.camera) {
+  fail("coerceFocusRegions should keep valid boxes and drop invalid ones");
+}
+
+const homeCam = resolveFocusRegion("camera", undefined, "home", 1);
+if (homeCam.x !== 0.55 || homeCam.y !== 0.12) {
+  fail(`Home camera fallback mismatch: ${JSON.stringify(homeCam)}`);
+}
+const confDisplay = resolveFocusRegion("display", undefined, "conference", 13);
+if (confDisplay.x !== 0.3 || confDisplay.y !== 0.04) {
+  fail(`Conference display fallback mismatch: ${JSON.stringify(confDisplay)}`);
+}
+const pinned = resolveFocusRegion(
+  "display",
+  { display: { x: 0.1, y: 0.2, w: 0.3, h: 0.4 } },
+  "home",
+  1,
+);
+if (pinned.x !== 0.1 || pinned.w !== 0.3) {
+  fail("Model focusRegions should win over fallbacks");
 }
 
 console.log("OK: VRC and Designer exports follow the estimate");

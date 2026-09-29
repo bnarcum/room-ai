@@ -98,6 +98,13 @@ export const DEMO_TOUR_ANALYSIS: DemoAnalysisEnvelope = {
       "Confirm camera coverage for all thirteen seats",
       "Verify network and power at the table center",
     ],
+    focusRegions: {
+      display: { x: 0.3, y: 0.04, w: 0.4, h: 0.36 },
+      camera: { x: 0.38, y: 0.06, w: 0.24, h: 0.2 },
+      acoustics: { x: 0.22, y: 0.4, w: 0.56, h: 0.42 },
+      lighting: { x: 0.1, y: 0, w: 0.8, h: 0.26 },
+      network: { x: 0.34, y: 0.5, w: 0.32, h: 0.28 },
+    },
   },
 };
 

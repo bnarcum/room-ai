@@ -79,6 +79,9 @@ const FIXTURE = {
   },
 };
 
+const TINY_PHOTO =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
 // 24×16 ft area heuristic is 14 seats (max of occupancy 13).
 const EXPECTED_DESIGNER =
   "https://designer.webex.com/#/room/mediumroom/summary?1&rt=Medium%20Room&ch=14";
@@ -99,8 +102,9 @@ async function main() {
     throw new Error("Home should not fork to quick vs classic");
   }
 
-  await page.addInitScript((payload) => {
+  await page.evaluate((payload) => {
     sessionStorage.setItem("room-ai-analysis-v1", JSON.stringify(payload));
+    sessionStorage.removeItem("room-ai-photo-v1");
   }, FIXTURE);
 
   await page.goto(`${baseUrl}/results`, { waitUntil: "domcontentloaded" });
@@ -169,8 +173,15 @@ async function main() {
   }
 
   const headline = await page.locator("[data-testid='results-headline']").textContent();
-  if (!headline?.includes("Conference") || !headline.includes("14 seats") || !headline.includes("22–26")) {
-    throw new Error(`Headline missing type/seats/ranges: ${headline}`);
+  if (
+    !headline?.includes("Conference") ||
+    !headline.includes("14 seats") ||
+    !headline.includes("about 24 × 16")
+  ) {
+    throw new Error(`Headline missing type/seats/midpoints: ${headline}`);
+  }
+  if (headline.includes("22–26") || headline.includes("12–16")) {
+    throw new Error(`Headline still shows raw ranges: ${headline}`);
   }
 
   const body = await page.locator("main").textContent();
@@ -191,7 +202,79 @@ async function main() {
     throw new Error("No stored photo should not render a thumbnail");
   }
 
-  console.log("OK: home analyze + slim results, Designer URL matches seat count");
+  for (const title of expectedRecs) {
+    const overflow = await page
+      .locator(`[data-testid="rec-${title}"] .results-rec-text`)
+      .evaluate((el) => getComputedStyle(el).textOverflow);
+    if (overflow === "ellipsis") {
+      throw new Error(`${title} rec is CSS-truncated with ellipsis`);
+    }
+  }
+
+  const fallbackPayload = structuredClone(FIXTURE);
+  await page.evaluate(
+    ({ analysis, photo }) => {
+      sessionStorage.setItem("room-ai-analysis-v1", JSON.stringify(analysis));
+      sessionStorage.setItem("room-ai-photo-v1", photo);
+    },
+    { analysis: fallbackPayload, photo: TINY_PHOTO },
+  );
+  await page.goto(`${baseUrl}/results`, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector('[data-testid="results-photo"]', { timeout: 10_000 });
+  if ((await page.locator('[data-testid="photo-spotlight"]').count()) !== 0) {
+    throw new Error("Spotlight should be hidden until hover/click");
+  }
+  await page.locator('[data-testid="rec-Camera"]').hover();
+  await page.waitForSelector('[data-testid="photo-spotlight"]', { timeout: 5_000 });
+  const fallbackRegion = await page
+    .locator('[data-testid="photo-spotlight"]')
+    .getAttribute("data-region");
+  if (fallbackRegion !== "camera") {
+    throw new Error(`Fallback spotlight region was ${fallbackRegion}`);
+  }
+  const fallbackCaption = await page
+    .locator('[data-testid="photo-spotlight-caption"]')
+    .textContent();
+  if (fallbackCaption?.trim() !== "Camera") {
+    throw new Error(`Fallback caption was ${fallbackCaption}`);
+  }
+
+  const boxed = structuredClone(FIXTURE);
+  boxed.data.focusRegions = {
+    display: { x: 0.1, y: 0.2, w: 0.3, h: 0.4 },
+    camera: { x: 0.55, y: 0.12, w: 0.4, h: 0.45 },
+  };
+  await page.evaluate(
+    ({ analysis, photo }) => {
+      sessionStorage.setItem("room-ai-analysis-v1", JSON.stringify(analysis));
+      sessionStorage.setItem("room-ai-photo-v1", photo);
+    },
+    { analysis: boxed, photo: TINY_PHOTO },
+  );
+  await page.goto(`${baseUrl}/results`, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector('[data-testid="results-photo"]', { timeout: 10_000 });
+  await page.locator('[data-testid="rec-Display"]').click();
+  const spot = page.locator('[data-testid="photo-spotlight"]');
+  await spot.waitFor({ timeout: 5_000 });
+  if ((await spot.getAttribute("data-region")) !== "display") {
+    throw new Error("Pinned display rec should spotlight display");
+  }
+  const style = await spot.getAttribute("style");
+  if (!style?.includes("left: 10%") || !style.includes("top: 20%") || !style.includes("width: 30%")) {
+    throw new Error(`Spotlight style did not match focusRegions: ${style}`);
+  }
+  await page.locator('[data-testid="rec-Display"]').click();
+  if ((await page.locator('[data-testid="photo-spotlight"]').count()) !== 0) {
+    throw new Error("Clicking the same rec should clear the pin");
+  }
+  await page.locator('[data-testid="rec-Camera"]').click();
+  await page.waitForSelector('[data-testid="photo-spotlight"]', { timeout: 5_000 });
+  await page.locator('[data-testid="results-photo-frame"]').click();
+  if ((await page.locator('[data-testid="photo-spotlight"]').count()) !== 0) {
+    throw new Error("Clicking the photo should clear the spotlight");
+  }
+
+  console.log("OK: home analyze + cinematic results, Designer URL matches seat count");
   console.log(`  Designer URL: ${designerHref}`);
   console.log(`  Headline: ${headline?.trim()}`);
   await browser.close();

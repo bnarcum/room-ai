@@ -1,6 +1,14 @@
 import { z } from "zod";
 
+import { coerceFocusRegions } from "@/lib/focusRegions";
 import { buildWebexDesignerResourcesRubricSection } from "@/lib/webexDesignerResources";
+
+const focusBoxOutputSchema = z.object({
+  x: z.number().describe("Left edge, 0–1 from the photo left."),
+  y: z.number().describe("Top edge, 0–1 from the photo top."),
+  w: z.number().describe("Width, 0–1 of photo width."),
+  h: z.number().describe("Height, 0–1 of photo height."),
+});
 
 export type LikelyUseCategory =
   | "home"
@@ -204,6 +212,18 @@ export const roomAnalysisOutputSchema = z.object({
     power: z.array(z.string()),
   }),
   quickChecklist: z.array(z.string()),
+  focusRegions: z
+    .object({
+      camera: focusBoxOutputSchema.optional(),
+      display: focusBoxOutputSchema.optional(),
+      acoustics: focusBoxOutputSchema.optional(),
+      lighting: focusBoxOutputSchema.optional(),
+      network: focusBoxOutputSchema.optional(),
+    })
+    .optional()
+    .describe(
+      "Optional 0–1 boxes (top-left origin) for objects actually visible in the photo: camera/webcam, display/TV/monitor, chair/seating for audio, lights/window, desk/router cluster.",
+    ),
 });
 
 /** Runtime validation after the model responds (ranges, non-empty strings, array sizes). */
@@ -237,6 +257,7 @@ export const roomAnalysisSchema = roomAnalysisOutputSchema
         return Math.max(0, Math.min(8, Math.round(n)));
       })(),
     },
+    focusRegions: coerceFocusRegions(data.focusRegions),
   }))
   .superRefine((data, ctx) => {
     const { dimensions } = data;

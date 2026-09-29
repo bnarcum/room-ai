@@ -190,7 +190,14 @@ export async function POST(request: Request) {
     '    "camera": string[], "display": string[], "acoustics": string[], "lighting": string[], "network": string[],',
     '    "seating": string[], "cabling": string[], "power": string[]',
     "  },",
-    '  "quickChecklist": string[] (at least 3 items)',
+    '  "quickChecklist": string[] (at least 3 items),',
+    '  "focusRegions": {',
+    '    "camera"?: { "x": 0-1, "y": 0-1, "w": 0-1, "h": 0-1 },',
+    '    "display"?: { "x": 0-1, "y": 0-1, "w": 0-1, "h": 0-1 },',
+    '    "acoustics"?: { "x": 0-1, "y": 0-1, "w": 0-1, "h": 0-1 },',
+    '    "lighting"?: { "x": 0-1, "y": 0-1, "w": 0-1, "h": 0-1 },',
+    '    "network"?: { "x": 0-1, "y": 0-1, "w": 0-1, "h": 0-1 }',
+    "  }",
     "}",
   ].join("\n");
 
@@ -217,6 +224,7 @@ export async function POST(request: Request) {
         "- Each string is ONE short sentence (max ~90 characters). Do not paste raw URLs into the sentence.",
         "- If you cite Cisco or Webex guidance, append markdown only: [Cisco guidance](https://www.cisco.com/c/en/us/products/collaboration-endpoints/index.html).",
         "- Ground advice in what is visible in the photo or render; where visibility is limited, say so and suggest a safe default.",
+        "- Add focusRegions boxes only for objects actually in the photo (TV, monitor, chair, lights, window, desk). Coordinates are 0–1 from the top-left. Omit a key if that object is not visible.",
         "- Do not repeat one generic sentence across every category.",
         "",
         rubric,
@@ -233,7 +241,7 @@ export async function POST(request: Request) {
     isWorkspaceDesignerRender ? WORKSPACE_DESIGNER_RENDER_USER_FOOTER : null,
     isWorkspaceDesignerRender
       ? "Task: Evaluate this Workspace Designer render for hybrid-meeting readiness; estimate dimension ranges from depicted geometry and scale cues; fill observedItems with every visible collaboration-relevant object (displays, codecs/bars, cameras, seating, laptops, plants, decor). Name items consistently when you reference them in recommendations or quickChecklist."
-      : "Task: Estimate directional length/width/height ranges plus midpoints. Classify home/small-office vs conference from furniture (standing desk + consumer TV + one chair = home or small-office). occupancy is visible chairs only. Fill observedItems from the photo. Estimate primaryScreenDiagonalInches. Write short camera, display, audio, lighting, and network recommendations with optional [Cisco guidance](url) markdown — no raw URLs.",
+      : "Task: Estimate directional length/width/height ranges plus midpoints. Classify home/small-office vs conference from furniture (standing desk + consumer TV + one chair = home or small-office). occupancy is visible chairs only. Fill observedItems from the photo. Estimate primaryScreenDiagonalInches. Write short camera, display, audio, lighting, and network recommendations with optional [Cisco guidance](url) markdown — no raw URLs. Return focusRegions boxes (0–1, top-left) for the TV/monitor, camera/webcam, chair, lights/window, and desk/network cluster when those objects are visible.",
   ]
     .filter(Boolean)
     .join("\n");

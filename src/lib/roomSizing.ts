@@ -99,10 +99,24 @@ export function formatPlanSize(analysis: RoomAnalysis): string {
   return `${formatAxisRangeBare(d.lengthMin, d.lengthMax)} × ${formatAxisRangeBare(d.widthMin, d.widthMax)} ${suffix}`;
 }
 
-export function resultsHeadline(analysis: RoomAnalysis): string {
+export function formatAboutPlanSize(analysis: RoomAnalysis): string {
+  const d = analysis.dimensions;
+  const suffix = d.unit === "meters" ? "m" : "ft";
+  return `about ${Math.round(d.length)} × ${Math.round(d.width)} ${suffix}`;
+}
+
+export function resultsHeadlineTitle(analysis: RoomAnalysis): string {
+  return likelyUseHeadline(analysis.roomSummary.likelyUse);
+}
+
+export function resultsHeadlineMeta(analysis: RoomAnalysis): string {
   const seats = effectiveSeatCount(analysis);
   const seatWord = seats === 1 ? "seat" : "seats";
-  return `${likelyUseHeadline(analysis.roomSummary.likelyUse)} · ${seats} ${seatWord} · ${formatPlanSize(analysis)}`;
+  return `${seats} ${seatWord} · ${formatAboutPlanSize(analysis)}`;
+}
+
+export function resultsHeadline(analysis: RoomAnalysis): string {
+  return `${resultsHeadlineTitle(analysis)} · ${resultsHeadlineMeta(analysis)}`;
 }
 
 export function layoutKindLabel(kind: RoomLayoutKind): string {

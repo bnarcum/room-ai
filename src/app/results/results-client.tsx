@@ -9,13 +9,17 @@ import {
 } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SiteBrandLink } from "@/components/SiteBrand";
+import { ResultsPhotoHero } from "@/components/ResultsPhotoHero";
 import {
   COLLAB_EXPERIENCE_URL,
   buildVideoRoomCalculatorJson,
   vrcJsonFileName,
 } from "@/lib/collabExperienceExport";
 import { coerceRoomAnalysisPayload } from "@/lib/coerceRoomAnalysis";
+import {
+  type FocusRegionKey,
+  resolveFocusRegion,
+} from "@/lib/focusRegions";
 import {
   CISCO_GUIDANCE_LABEL,
   parseRecommendationLine,
@@ -27,7 +31,8 @@ import {
 import { roomAnalysisSchema, type RoomAnalysis } from "@/lib/roomAnalysis";
 import {
   designerSeatCount,
-  resultsHeadline,
+  resultsHeadlineMeta,
+  resultsHeadlineTitle,
 } from "@/lib/roomSizing";
 import {
   loadRoomAnalysisPayload,
@@ -68,6 +73,8 @@ export default function ResultsClient() {
   const [decoded, setDecoded] = useState<AnalyzeEnvelope | null>(null);
   const [ready, setReady] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [hoveredKey, setHoveredKey] = useState<FocusRegionKey | null>(null);
+  const [pinnedKey, setPinnedKey] = useState<FocusRegionKey | null>(null);
 
   useEffect(() => {
     if (!exportTip) return;
@@ -116,6 +123,16 @@ export default function ResultsClient() {
 
   const loading = !ready;
   const canExportVrc = Boolean(ready && analysis);
+  const activeKey = hoveredKey ?? pinnedKey;
+  const activeRegion =
+    analysis && activeKey
+      ? resolveFocusRegion(
+          activeKey,
+          analysis.focusRegions,
+          analysis.roomSummary.likelyUse,
+          analysis.roomSummary.occupancy,
+        )
+      : null;
 
   async function onCopyAnalysisJson() {
     if (!pretty) return;
@@ -153,7 +170,6 @@ export default function ResultsClient() {
     a.download = vrcJsonFileName(vrc.name);
     a.click();
     URL.revokeObjectURL(url);
-    setExportTip("New → Open File, pick the download");
   }
 
   function onOpenCollabExperience() {
@@ -179,7 +195,7 @@ export default function ResultsClient() {
           href="https://designer.webex.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="font-medium text-[hsl(173_85%_58%)] underline underline-offset-2"
+          className="results-quiet-link"
         >
           designer.webex.com
         </a>
@@ -188,201 +204,209 @@ export default function ResultsClient() {
     );
   }
 
+  function togglePin(key: FocusRegionKey) {
+    if (pinnedKey === key) {
+      setPinnedKey(null);
+      setHoveredKey(null);
+      return;
+    }
+    setPinnedKey(key);
+  }
+
   return (
-    <div className="app-backdrop flex min-h-full flex-1 flex-col items-center px-4 py-8 text-[hsl(210_40%_96%)] sm:py-10">
-      <main className="w-full max-w-3xl">
-        <div className="mb-6 w-full sm:mb-8">
-          <SiteBrandLink />
-        </div>
-        <div className="surface-card rounded-3xl p-7">
-          <div className="flex items-start justify-between gap-4">
-            <h1 className="text-3xl font-semibold tracking-tight text-white">
-              Results
-            </h1>
-            <Link
-              href="/"
-              className="rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2 text-sm font-medium text-[hsl(215_20%_82%)] transition-colors hover:border-[hsl(277_90%_65%/0.45)] hover:bg-[hsl(277_90%_65%/0.1)] hover:text-[hsl(210_40%_98%)]"
-            >
-              New analysis
+    <div className="results-apple">
+      <main className="results-shell">
+        <header className="results-topbar">
+          <Link href="/" className="results-wordmark">
+            SnapRoom
+          </Link>
+          <Link href="/" className="results-new">
+            New analysis
+          </Link>
+        </header>
+
+        {loading ? (
+          <p className="results-status">Loading…</p>
+        ) : null}
+        {!loading && !decoded ? (
+          <p className="results-status">
+            No results in this tab yet.{" "}
+            <Link href="/" className="results-quiet-link">
+              Analyze a photo
             </Link>
-          </div>
+            .
+          </p>
+        ) : null}
+        {!loading && decoded && decoded.ok === false ? (
+          <p className="results-status results-status--error" role="alert">
+            {decoded.error}
+          </p>
+        ) : null}
+        {!loading && parseFailed ? (
+          <p className="results-status results-status--error" role="alert">
+            Saved results could not be read. Run a new analysis from the home
+            page.
+          </p>
+        ) : null}
 
-          {loading ? (
-            <p className="copy-muted mt-6">Loading results…</p>
-          ) : null}
-          {!loading && !decoded ? (
-            <div className="mt-6 rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.65)] p-4 text-[15px] leading-relaxed text-[hsl(215_20%_84%)]">
-              No results in this tab yet.{" "}
-              <Link
-                href="/"
-                className="font-semibold text-white underline underline-offset-2"
+        {!loading && analysis ? (
+          <div className="results-stack">
+            {photoPreview ? (
+              <ResultsPhotoHero
+                src={photoPreview}
+                region={activeRegion}
+                captionKey={activeKey}
+                onClear={() => {
+                  setPinnedKey(null);
+                  setHoveredKey(null);
+                }}
+              />
+            ) : null}
+
+            <section id="tour-room-read" aria-label="Room read">
+              <h1
+                id="tour-dimensions"
+                className="results-headline"
+                data-testid="results-headline"
               >
-                Analyze a photo
-              </Link>
-              .
-            </div>
-          ) : null}
-          {!loading && decoded && decoded.ok === false ? (
-            <div className="mt-6 rounded-xl border border-red-500/30 bg-red-950/45 p-4 text-sm text-red-200">
-              {decoded.error}
-            </div>
-          ) : null}
-          {!loading && parseFailed ? (
-            <div className="mt-6 rounded-xl border border-red-500/30 bg-red-950/45 p-4 text-sm text-red-200">
-              Saved results could not be read. Run a new analysis from the home
-              page.
-            </div>
-          ) : null}
+                <span className="results-headline-title">
+                  {resultsHeadlineTitle(analysis)}
+                </span>
+                <span className="results-headline-meta">
+                  {resultsHeadlineMeta(analysis)}
+                </span>
+              </h1>
+            </section>
 
-          {!loading && analysis ? (
-            <div className="mt-8 grid gap-6">
-              {photoPreview ? (
-                <div className="overflow-hidden rounded-2xl border border-[hsl(217_33%_25%)] bg-black/40">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={photoPreview}
-                    alt="Analyzed room photo"
-                    className="mx-auto max-h-40 w-full object-cover"
-                    data-testid="results-photo"
-                  />
-                </div>
-              ) : null}
-
-              <section
-                className="rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.45)] p-5"
-                id="tour-room-read"
-                aria-label="Room read"
-              >
-                <p
-                  id="tour-dimensions"
-                  className="text-[20px] font-semibold tracking-tight text-white"
-                  data-testid="results-headline"
-                >
-                  {resultsHeadline(analysis)}
-                </p>
-              </section>
-
-              <section
-                className="rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.45)] p-5"
-                id="tour-recommendations"
-                aria-label="Recommendations"
-              >
-                <ul className="grid gap-5">
-                  {REC_ROWS.map(([title, key]) => {
-                    const line = parseRecommendationLine(
-                      analysis.recommendations[key][0] ?? "",
-                    );
-                    return (
-                      <li
-                        key={title}
-                        className="text-[15px] leading-relaxed text-[hsl(215_20%_82%)]"
-                        data-testid={`rec-${title}`}
-                      >
-                        <p className="m-0">
-                          <span className="font-semibold text-[hsl(277_90%_74%)]">
-                            {title}
-                          </span>
-                          {line.text ? ` — ${line.text}` : ""}
-                        </p>
-                        {line.href ? (
-                          <a
-                            href={line.href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-1 inline-block text-[13px] font-medium text-[hsl(173_85%_62%)] underline underline-offset-2"
-                            data-testid={`rec-link-${title}`}
-                          >
-                            {CISCO_GUIDANCE_LABEL}
-                          </a>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-
-              <section
-                className="rounded-2xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.55)] p-6"
-                aria-label="Primary exports"
-                id="tour-exports"
-              >
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  {designerUrl ? (
-                    <a
-                      id="tour-designer-cta"
-                      href={designerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-accent inline-flex flex-1 items-center justify-center rounded-xl px-5 py-3 text-[15px] font-semibold"
+            <section
+              id="tour-recommendations"
+              aria-label="Recommendations"
+            >
+              <ul className="results-recs">
+                {REC_ROWS.map(([title, key]) => {
+                  const line = parseRecommendationLine(
+                    analysis.recommendations[key][0] ?? "",
+                  );
+                  const selected = pinnedKey === key || hoveredKey === key;
+                  return (
+                    <li
+                      key={title}
+                      className={
+                        selected
+                          ? "results-rec is-active"
+                          : "results-rec"
+                      }
+                      data-testid={`rec-${title}`}
+                      onMouseEnter={() => setHoveredKey(key)}
+                      onMouseLeave={() => setHoveredKey(null)}
                     >
-                      Open Workspace Designer
-                    </a>
-                  ) : null}
+                      <button
+                        type="button"
+                        className="results-rec-hit"
+                        aria-pressed={pinnedKey === key}
+                        onClick={() => togglePin(key)}
+                      >
+                        <span className="results-rec-label">{title}</span>
+                        {line.text ? (
+                          <span className="results-rec-text">{line.text}</span>
+                        ) : null}
+                      </button>
+                      {line.href ? (
+                        <a
+                          href={line.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="results-rec-link"
+                          data-testid={`rec-link-${title}`}
+                        >
+                          {CISCO_GUIDANCE_LABEL}
+                        </a>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+
+            <section
+              className="results-actions"
+              aria-label="Primary exports"
+              id="tour-exports"
+            >
+              <div className="results-action-row">
+                {designerUrl ? (
+                  <a
+                    id="tour-designer-cta"
+                    href={designerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="results-btn results-btn-solid"
+                  >
+                    Open Workspace Designer
+                  </a>
+                ) : null}
+                <div className="results-action-col">
                   <button
                     type="button"
                     id="tour-collab-cta"
                     onClick={onOpenCollabExperience}
                     disabled={!canExportVrc}
-                    className="btn-accent inline-flex flex-1 items-center justify-center rounded-xl px-5 py-3 text-[15px] font-semibold disabled:cursor-not-allowed"
+                    className="results-btn results-btn-ghost"
                   >
                     Open Collab Experience
                   </button>
+                  <p className="results-collab-hint">
+                    New → Open File, pick the download
+                  </p>
                 </div>
-                <p className="copy-muted mt-3">
-                  New → Open File, pick the download
+              </div>
+
+              {exportTip ? (
+                <p className="results-tip" role="status" aria-live="polite">
+                  {exportTip}
                 </p>
+              ) : null}
+            </section>
 
-                {exportTip ? (
-                  <p
-                    className="mt-4 rounded-xl border border-[hsl(173_80%_40%/0.35)] bg-[hsl(173_80%_40%/0.1)] px-4 py-3 text-[14px] leading-relaxed text-[hsl(210_40%_94%)]"
-                    role="status"
-                    aria-live="polite"
-                  >
-                    {exportTip}
-                  </p>
-                ) : null}
-              </section>
-
-              <details className="rounded-xl border border-[hsl(217_33%_22%)] bg-[hsl(220_25%_10%/0.35)] px-4 py-3 [&_summary]:cursor-pointer [&_summary]:font-medium [&_summary]:text-[hsl(215_20%_90%)]">
-                <summary className="select-none">More</summary>
-                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                  <button
-                    type="button"
-                    onClick={onDownloadWebexDesignerJson}
-                    disabled={!canExportVrc}
-                    className="rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2.5 text-[14px] font-semibold text-[hsl(210_40%_96%)] disabled:opacity-45"
-                  >
-                    Download Designer JSON
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onCopyAnalysisJson}
-                    disabled={loading || !pretty}
-                    className="rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2.5 text-[14px] font-semibold text-[hsl(210_40%_96%)] disabled:opacity-45"
-                  >
-                    {copiedJson ? "Copied JSON" : "Copy full analysis"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onDownloadJson}
-                    disabled={loading || !pretty}
-                    className="rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.85)] px-4 py-2.5 text-[14px] font-semibold text-[hsl(210_40%_96%)] disabled:opacity-45"
-                  >
-                    Download full analysis
-                  </button>
-                </div>
-                {designerUrl ? (
-                  <p
-                    className="mt-3 break-all font-mono text-[12px] leading-relaxed text-[hsl(173_85%_62%)]"
-                    data-testid="designer-url"
-                  >
-                    {designerUrl}
-                  </p>
-                ) : null}
-              </details>
-            </div>
-          ) : null}
-        </div>
+            <details className="results-more">
+              <summary>More</summary>
+              <div className="results-more-actions">
+                <button
+                  type="button"
+                  onClick={onDownloadWebexDesignerJson}
+                  disabled={!canExportVrc}
+                  className="results-more-btn"
+                >
+                  Download Designer JSON
+                </button>
+                <button
+                  type="button"
+                  onClick={onCopyAnalysisJson}
+                  disabled={loading || !pretty}
+                  className="results-more-btn"
+                >
+                  {copiedJson ? "Copied JSON" : "Copy full analysis"}
+                </button>
+                <button
+                  type="button"
+                  onClick={onDownloadJson}
+                  disabled={loading || !pretty}
+                  className="results-more-btn"
+                >
+                  Download full analysis
+                </button>
+              </div>
+              {designerUrl ? (
+                <p
+                  className="results-designer-url"
+                  data-testid="designer-url"
+                >
+                  {designerUrl}
+                </p>
+              ) : null}
+            </details>
+          </div>
+        ) : null}
       </main>
     </div>
   );

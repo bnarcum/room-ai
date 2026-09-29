@@ -47,7 +47,7 @@ export async function saveRoomPhotoThumbnail(file: File): Promise<boolean> {
   try {
     const bmp = await createImageBitmap(file);
     try {
-      const maxDim = 360;
+      const maxDim = 1440;
       const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
       const canvas = document.createElement("canvas");
       canvas.width = Math.max(1, Math.round(bmp.width * scale));

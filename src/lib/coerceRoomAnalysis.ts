@@ -1,5 +1,6 @@
 import { isPersonalWorkspace } from "webex-designer-export";
 
+import { coerceFocusRegions } from "./focusRegions";
 import { resolveLikelyUse } from "./roomAnalysis";
 import {
   capPersonalWorkspaceHeight,
@@ -212,6 +213,10 @@ export function coerceRoomAnalysisPayload(raw: unknown): unknown {
   const checklist = stringArray(qc, PAD_CHECK);
   while (checklist.length < 3) checklist.push(PAD_CHECK);
   base.quickChecklist = checklist;
+
+  const regions = coerceFocusRegions(base.focusRegions);
+  if (regions) base.focusRegions = regions;
+  else delete base.focusRegions;
 
   return base;
 }
