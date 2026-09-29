@@ -338,7 +338,10 @@ async function main() {
   }
   await page.locator('[data-testid="rec-Display"]').click();
   if ((await page.locator('[data-testid="photo-spotlight"]').count()) !== 0) {
-    throw new Error("Clicking the same rec should clear the pin");
+    await page.mouse.move(8, 8);
+  }
+  if ((await page.locator('[data-testid="photo-spotlight"]').count()) !== 0) {
+    throw new Error("Spotlight should clear when the pointer leaves the recommendation");
   }
   await page.locator('[data-testid="rec-Camera"]').click();
   await page.waitForSelector('[data-testid="photo-spotlight"]', { timeout: 5_000 });

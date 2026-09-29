@@ -136,7 +136,7 @@ export default function ResultsClient() {
   const showingPrimary = Boolean(photoPreview && displayHero === photoPreview);
   const splitLayout = Boolean(!loading && analysis && displayHero);
   const canExportVrc = Boolean(ready && analysis);
-  const activeKey = hoveredKey ?? pinnedKey;
+  const activeKey = hoveredKey;
   const activeRegion =
     analysis && activeKey && showingPrimary
       ? resolveFocusRegion(activeKey, analysis.focusRegions)
@@ -395,12 +395,18 @@ export default function ResultsClient() {
                 </section>
               </div>
 
-              <div className="results-scroll">
+              <div
+                className="results-scroll"
+                onScroll={() => setHoveredKey(null)}
+              >
                 <section
                   id="tour-recommendations"
                   aria-label="Recommendations"
                 >
-                  <ul className="results-recs">
+                  <ul
+                    className="results-recs"
+                    onMouseLeave={() => setHoveredKey(null)}
+                  >
                     {REC_ROWS.map(([title, key]) => {
                       const line = splitRecommendation(
                         analysis.recommendations[key],
