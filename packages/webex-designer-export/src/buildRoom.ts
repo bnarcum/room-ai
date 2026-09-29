@@ -40,13 +40,13 @@ function titleFromLikelyUse(likelyUse: string): string {
     case "home":
     case "small-office":
     case "home-office":
-      return "Home office";
+      return "Home Office";
     case "conference":
       return "Conference";
     case "classroom":
       return "Classroom";
     default:
-      return "Meeting room";
+      return "Meeting Room";
   }
 }
 

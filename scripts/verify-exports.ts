@@ -287,8 +287,8 @@ if (/unknown/i.test(unknownVrc.name) || /unknown/i.test(unknownDesigner.title)) 
 if (compactVrc.name !== "SnapRoom — Conference") {
   fail(`Expected VRC name "SnapRoom — Conference", got "${compactVrc.name}"`);
 }
-if (unknownVrc.name !== "SnapRoom — Meeting room") {
-  fail(`Expected fallback VRC name "SnapRoom — Meeting room", got "${unknownVrc.name}"`);
+if (unknownVrc.name !== "SnapRoom — Meeting Room") {
+  fail(`Expected fallback VRC name "SnapRoom — Meeting Room", got "${unknownVrc.name}"`);
 }
 
 if (compactBuckets.tables.length < 1) fail("VRC tables.length must be >= 1");
@@ -403,7 +403,7 @@ if (officeDesignerSeats !== 2) {
   fail(`Designer seats for home office should be 2, got ${officeDesignerSeats}`);
 }
 if (
-  !officeHeadline.startsWith("Home office · 1 seat") ||
+  !officeHeadline.startsWith("Home Office · 1 seat") ||
   !officeHeadline.includes("about 10 × 12")
 ) {
   fail(`Unexpected home office headline: ${officeHeadline}`);
@@ -411,8 +411,8 @@ if (
 if (officeUrl !== "https://designer.webex.com/#/room/huddleroom/summary?1&rt=Huddle%20Room&ch=2") {
   fail(`Home office Designer URL should be huddleroom ch=2, got ${officeUrl}`);
 }
-if (officeVrc.name !== "SnapRoom — Home office") {
-  fail(`Expected VRC name "SnapRoom — Home office", got "${officeVrc.name}"`);
+if (officeVrc.name !== "SnapRoom — Home Office") {
+  fail(`Expected VRC name "SnapRoom — Home Office", got "${officeVrc.name}"`);
 }
 if (office.dimensions.height > 9 || Number(officeVrc.room.roomHeight) > 9) {
   fail(

@@ -202,15 +202,7 @@ export default function ResultsClient() {
   function onDownloadWebexDesignerJson() {
     if (!downloadWebexDesignerJson()) return;
     setExportTip(
-      "Downloaded this room. Drag the file onto the 3D view at designer.webex.com.",
-    );
-  }
-
-  function onOpenWorkspaceDesigner() {
-    if (!downloadWebexDesignerJson()) return;
-    window.open("https://designer.webex.com", "_blank", "noopener,noreferrer");
-    setExportTip(
-      "Downloaded this room. Drag the file onto the 3D view in Workspace Designer.",
+      "Downloaded the layout. Drag the file onto the 3D view for this photo's dimensions and gear.",
     );
   }
 
@@ -356,18 +348,28 @@ export default function ResultsClient() {
                 >
                   <div className="results-action-row">
                     <div className="results-action-col">
+                      {designerUrl ? (
+                        <a
+                          id="tour-designer-cta"
+                          href={designerUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="results-btn results-btn-solid"
+                        >
+                          Open this room in Designer
+                        </a>
+                      ) : null}
+                      <p className="results-collab-hint">
+                        Opens the matching Designer room.
+                      </p>
                       <button
                         type="button"
-                        id="tour-designer-cta"
-                        onClick={onOpenWorkspaceDesigner}
+                        onClick={onDownloadWebexDesignerJson}
                         disabled={!canExportVrc}
-                        className="results-btn results-btn-solid"
+                        className="results-layout-link"
                       >
-                        Open this room in Designer
+                        Download layout JSON
                       </button>
-                      <p className="results-collab-hint">
-                        Downloads this room. Drag the file onto the 3D view.
-                      </p>
                     </div>
                     <div className="results-action-col">
                       <button

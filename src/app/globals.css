@@ -792,6 +792,24 @@ body {
   color: var(--seller-tertiary);
 }
 
+.results-layout-link {
+  align-self: flex-start;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--seller-cyan);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.results-layout-link:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .results-tip {
   margin: 16px 0 0;
   font-size: 13px;

@@ -186,12 +186,12 @@ async function main() {
     throw new Error(`Primary Designer action should open this room: ${designerLabel}`);
   }
   const designerHref = await page.locator("#tour-designer-cta").getAttribute("href");
-  if (designerHref) {
-    throw new Error("Primary Designer action must download this room, not open a preset");
+  if (designerHref !== EXPECTED_DESIGNER) {
+    throw new Error(`Designer room link mismatch: ${designerHref}`);
   }
-  const presetUrl = await page.locator("[data-testid='designer-url']").textContent();
-  if (presetUrl?.trim() !== EXPECTED_DESIGNER) {
-    throw new Error(`Designer preset URL mismatch: ${presetUrl}`);
+  const layoutJson = await page.getByRole("button", { name: "Download layout JSON" }).count();
+  if (layoutJson !== 1) {
+    throw new Error("Layout JSON should be a separate option from the Designer link");
   }
 
   const headline = await page.locator("[data-testid='results-headline']").textContent();
@@ -353,7 +353,7 @@ async function main() {
   if (!opened?.includes("Check backlight.")) {
     throw new Error("Opening the camera row should reveal the rest of the advice");
   }
-  console.log(`  Designer preset: ${presetUrl?.trim()}`);
+  console.log(`  Designer room: ${designerHref}`);
   console.log(`  Headline: ${headline?.trim()}`);
   await browser.close();
 }
