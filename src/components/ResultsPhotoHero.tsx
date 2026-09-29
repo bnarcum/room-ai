@@ -37,6 +37,50 @@ type ResultsPhotoHeroProps = {
   size?: RoomSizeProof | null;
 };
 
+function RoomSizeDiagram({ length, width, height, unit }: RoomSizeProof) {
+  const L = String(round1(length));
+  const W = String(round1(width));
+  const H = String(round1(height));
+  const suffix = unit === "meters" ? "m" : "ft";
+  const spoken = `${L} × ${W} × ${H} ${suffix}`;
+
+  return (
+    <div
+      className="results-size-proof"
+      data-testid="results-size-proof"
+      aria-label={spoken}
+    >
+      <span className="results-size-proof-sr">{spoken}</span>
+      <svg
+        className="results-size-iso"
+        viewBox="0 0 128 108"
+        aria-hidden="true"
+      >
+        <g
+          fill="rgb(7 24 45 / 0.58)"
+          stroke="currentColor"
+          strokeWidth="1.15"
+          strokeLinejoin="round"
+        >
+          <path d="M40 48 L64 32 L110 32 L86 48 Z" />
+          <path d="M40 48 L40 86 L86 86 L86 48 Z" />
+          <path d="M86 48 L110 32 L110 70 L86 86 Z" />
+        </g>
+        <text className="results-size-iso-num" x="26" y="70" textAnchor="middle">
+          {H}
+        </text>
+        <text className="results-size-iso-num" x="63" y="102" textAnchor="middle">
+          {W}
+        </text>
+        <text className="results-size-iso-num" x="112" y="80" textAnchor="middle">
+          {L}
+        </text>
+      </svg>
+      <span className="results-size-unit">{suffix}</span>
+    </div>
+  );
+}
+
 function sameRect(a: OverlayRect, b: OverlayRect) {
   return (
     a.left === b.left &&
@@ -53,11 +97,6 @@ export function ResultsPhotoHero({
   onClear,
   size,
 }: ResultsPhotoHeroProps) {
-  const sizeLabel = size
-    ? `${round1(size.length)} × ${round1(size.width)} × ${round1(size.height)} ${
-        size.unit === "meters" ? "m" : "ft"
-      }`
-    : null;
   const boxRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [overlay, setOverlay] = useState<OverlayRect>(EMPTY_OVERLAY);
@@ -138,12 +177,7 @@ export function ResultsPhotoHero({
           </div>
         ) : null}
       </div>
-      {sizeLabel ? (
-        <div className="results-size-proof" data-testid="results-size-proof">
-          <span className="results-size-proof-rule" aria-hidden="true" />
-          <span>{sizeLabel}</span>
-        </div>
-      ) : null}
+      {size ? <RoomSizeDiagram {...size} /> : null}
     </div>
   );
 }
