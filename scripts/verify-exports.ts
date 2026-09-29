@@ -56,6 +56,10 @@ function fail(message: string): never {
   throw new Error(message);
 }
 
+function roundNear(n: number): number {
+  return Math.round((n + 0.12) * 1000) / 1000;
+}
+
 const conference = analysisFrom(DEMO_TOUR_ANALYSIS.data);
 const geo = deriveCollabExportGeometry(conference);
 const vrc = buildVideoRoomCalculatorJson(conference);
@@ -104,6 +108,46 @@ if (!mic || mic.model !== "Table Mic Pro") {
 }
 if (screen.size !== 75) {
   fail(`Medium room screen should be 75 from estimate, got ${String(screen.size)}`);
+}
+const screenPos = screen.position as [number, number, number];
+const screenYaw = (screen.rotation as [number, number, number])[1];
+const frontZ = roundNear(-designer.roomShape.length / 2);
+if (screen.role !== "singleScreen") {
+  fail(`Conference with one display should be singleScreen, got ${String(screen.role)}`);
+}
+if (Math.abs(screenPos[0]) > 0.05 || Math.abs(screenPos[2] - frontZ) > 0.05) {
+  fail(
+    `Conference screen should sit on the front wall, got [${screenPos.join(", ")}]`,
+  );
+}
+if (Math.abs(screenYaw) > 0.05) {
+  fail(`Front-wall screen yaw should be 0, got ${screenYaw}`);
+}
+const videoPos = video.position as [number, number, number];
+if (Math.abs(videoPos[0]) > 0.05 || Math.abs(videoPos[2] - frontZ) > 0.05) {
+  fail(`Room bar should sit with the front-wall screen, got [${videoPos.join(", ")}]`);
+}
+
+const dual = analysisFrom({
+  ...conference,
+  roomSummary: { ...conference.roomSummary, screenCount: 2 },
+});
+const dualDesigner = buildWebexDesignerRoomJson(dual);
+const dualScreens = dualDesigner.customObjects.filter((o) => o.objectType === "screen");
+if (dualScreens.length !== 2) {
+  fail(`Two displays should export two Designer screens, got ${dualScreens.length}`);
+}
+const dualRoles = dualScreens.map((o) => String(o.role)).sort();
+if (dualRoles.join(",") !== "firstScreen,secondScreen") {
+  fail(`Dual screens should be firstScreen and secondScreen, got ${dualRoles.join(", ")}`);
+}
+const dualZs = dualScreens.map((o) => (o.position as number[])[2]);
+const dualXs = dualScreens.map((o) => (o.position as number[])[0]);
+if (dualZs.some((z) => Math.abs(z - frontZ) > 0.05)) {
+  fail(`Dual screens should share the front wall, got z ${dualZs.join(", ")}`);
+}
+if (Math.abs((dualXs[0] ?? 0) - (dualXs[1] ?? 0)) < 0.4) {
+  fail(`Dual screens should sit side by side, got x ${dualXs.join(", ")}`);
 }
 
 const huddle = analysisFrom({

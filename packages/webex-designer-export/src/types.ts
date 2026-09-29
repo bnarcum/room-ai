@@ -18,6 +18,8 @@ export type RoomSummaryInput = {
   occupancy: number;
   /** Best-effort primary display diagonal; used instead of a boardroom default. */
   primaryScreenDiagonalInches?: number;
+  /** Visible front-wall displays. Home offices stay at one screen. */
+  screenCount?: number;
 };
 
 export type RoomAnalysisForWebex = {

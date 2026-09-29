@@ -1,5 +1,6 @@
 import {
   effectiveDesignerSeatCount,
+  isPersonalWorkspace,
   pickRoomLayoutKind,
   type RoomLayoutKind,
 } from "./roomTier";
@@ -197,6 +198,64 @@ function includeTableMic(kind: RoomLayoutKind): boolean {
   return kind === "medium" || kind === "large" || kind === "boardroom";
 }
 
+type ScreenRole = "singleScreen" | "firstScreen" | "secondScreen" | "thirdScreen";
+
+/** Home offices and huddles stay on one display. Conference rooms follow the photo. */
+function resolveScreenCount(
+  analysis: RoomAnalysisForWebex,
+  kind: RoomLayoutKind,
+): number {
+  if (isPersonalWorkspace(analysis.roomSummary.likelyUse) || kind === "huddle") {
+    return 1;
+  }
+  const raw = analysis.roomSummary.screenCount;
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return 1;
+  return Math.max(1, Math.min(3, Math.round(raw)));
+}
+
+function screenRoles(count: number): ScreenRole[] {
+  if (count <= 1) return ["singleScreen"];
+  if (count === 2) return ["firstScreen", "secondScreen"];
+  return ["firstScreen", "secondScreen", "thirdScreen"];
+}
+
+/** 16:9 panel width in meters from a diagonal in inches. */
+function screenWidthMeters(diagonalInches: number): number {
+  return diagonalInches * 0.0254 * (16 / Math.hypot(16, 9));
+}
+
+/**
+ * Main displays sit on the short wall the table faces, centered, yaw 0 when that
+ * wall is -Z. Designer uses that pose for the front wall. A room that is wider
+ * than it is long rotates the table, so the short wall is -X and yaw is π/2.
+ */
+function frontWallMount(
+  wm: number,
+  lm: number,
+  rotateTableY: number,
+): { x: number; z: number; yaw: number; along: "x" | "z" } {
+  const inset = 0.12;
+  const alongZ = Math.abs(rotateTableY) < 0.01;
+  if (alongZ) {
+    return { x: 0, z: round3(-lm / 2 + inset), yaw: 0, along: "x" };
+  }
+  return {
+    x: round3(-wm / 2 + inset),
+    z: 0,
+    yaw: round3(Math.PI / 2),
+    along: "z",
+  };
+}
+
+function screenCenterOffsets(count: number, span: number, panelWidth: number): number[] {
+  if (count <= 1) return [0];
+  const gap = 0.08;
+  const maxStep = Math.max(0.45, (span - 0.5) / (count - 1));
+  const step = Math.min(panelWidth + gap, maxStep);
+  const start = -((count - 1) * step) / 2;
+  return Array.from({ length: count }, (_, i) => round3(start + i * step));
+}
+
 function tableDimensionsForLayout(
   kind: RoomLayoutKind,
   widthM: number,
@@ -338,9 +397,16 @@ export function buildWebexDesignerRoomJson(
   const halfLong = tableLen / 2;
   const halfShort = tableWid / 2;
 
-  const wallInset = 0.15;
-  const wallX = round3(-wm / 2 + wallInset);
   const screenInch = resolveScreenInches(analysis, layoutKind, wm, lm);
+  const screenCount = resolveScreenCount(analysis, layoutKind);
+  const roles = screenRoles(screenCount);
+  const mount = frontWallMount(wm, lm, rotateTableY);
+  const span = mount.along === "x" ? wm : lm;
+  const offsets = screenCenterOffsets(
+    screenCount,
+    span,
+    screenWidthMeters(screenInch),
+  );
 
   const customObjects: Record<string, unknown>[] = [];
 
@@ -359,18 +425,27 @@ export function buildWebexDesignerRoomJson(
     objectType: "videoDevice",
     model: videoDeviceModel(layoutKind),
     color: "dark",
-    position: [wallX, layoutKind === "huddle" ? 1.55 : 1.75, tableCenterZ],
-    rotation: [0, 1.57, 0],
+    position: [
+      mount.x,
+      layoutKind === "huddle" ? 1.55 : 1.75,
+      mount.z,
+    ],
+    rotation: [0, mount.yaw, 0],
   });
 
-  customObjects.push({
-    id: "rai-screen",
-    objectType: "screen",
-    position: [wallX, 1.22, tableCenterZ],
-    rotation: [0, 1.57, 0],
-    scale: [1, 1, 1],
-    size: screenInch,
-    role: "singleScreen",
+  roles.forEach((role, i) => {
+    const offset = offsets[i] ?? 0;
+    const x = mount.along === "x" ? round3(mount.x + offset) : mount.x;
+    const z = mount.along === "z" ? round3(mount.z + offset) : mount.z;
+    customObjects.push({
+      id: screenCount === 1 ? "rai-screen" : `rai-screen-${i + 1}`,
+      objectType: "screen",
+      position: [x, 1.22, z],
+      rotation: [0, mount.yaw, 0],
+      scale: [1, 1, 1],
+      size: screenInch,
+      role,
+    });
   });
 
   if (includeTableMic(layoutKind)) {
