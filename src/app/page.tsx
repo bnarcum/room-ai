@@ -97,7 +97,7 @@ export default function Home() {
         <div className="home-headline" id="tour-hero">
           <h1 className="results-headline-title">Analyze a room</h1>
           <p className="results-headline-meta">
-            One photo. Directional size, seats, and five recs.
+            A first look at the space — from a single photograph.
           </p>
         </div>
 
