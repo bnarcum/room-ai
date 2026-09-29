@@ -22,7 +22,7 @@ import {
 } from "@/lib/focusRegions";
 import {
   CISCO_GUIDANCE_LABEL,
-  parseRecommendationLine,
+  parseRecommendationItems,
 } from "@/lib/recommendationDisplay";
 import {
   buildWebexDesignerRoomJson,
@@ -292,8 +292,8 @@ export default function ResultsClient() {
               >
                 <ul className="results-recs">
                   {REC_ROWS.map(([title, key]) => {
-                    const line = parseRecommendationLine(
-                      analysis.recommendations[key][0] ?? "",
+                    const line = parseRecommendationItems(
+                      analysis.recommendations[key],
                     );
                     const selected = pinnedKey === key || hoveredKey === key;
                     return (

@@ -142,8 +142,13 @@ async function main() {
     if (!rec?.includes(title)) {
       throw new Error(`Missing rec heading: ${title}`);
     }
-    if (title === "Camera" && rec.includes("Check backlight")) {
-      throw new Error("Recs should be first sentence only");
+    if (title === "Camera") {
+      if (!rec.includes("Keep cameras at eye height.")) {
+        throw new Error("Camera rec should show the full first item");
+      }
+      if (!rec.includes("Check backlight.")) {
+        throw new Error("Camera rec should join every recommendation sentence");
+      }
     }
     if (rec.includes("cisco.com/c/dam") || rec.includes("https://www.cisco.com/c/dam")) {
       throw new Error(`${title} rec still shows a raw /c/dam URL: ${rec}`);

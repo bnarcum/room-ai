@@ -1,5 +1,3 @@
-import { firstSentence } from "@/lib/roomSizing";
-
 export const CISCO_GUIDANCE_LABEL = "Cisco guidance";
 
 /** Public Cisco / Webex pages — never /c/dam PDF dumps. */
@@ -39,7 +37,7 @@ export function sanitizeGuidanceUrl(raw: string): string | null {
 }
 
 function tightenRecText(text: string): string {
-  let t = text
+  return text
     .replace(/\s+/g, " ")
     .replace(/\(\s*(see|see also)?\s*\)/gi, " ")
     .replace(/\s+([,.;:])/g, "$1")
@@ -47,7 +45,21 @@ function tightenRecText(text: string): string {
     .replace(/\s{2,}/g, " ")
     .replace(/^[\s—–-]+|[\s—–-]+$/g, "")
     .trim();
-  return firstSentence(t);
+}
+
+export function joinRecommendationItems(
+  items: readonly string[] | undefined,
+): string {
+  return (items ?? [])
+    .map((s) => String(s ?? "").replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
+export function parseRecommendationItems(
+  items: readonly string[] | undefined,
+): RecommendationLine {
+  return parseRecommendationLine(joinRecommendationItems(items));
 }
 
 export function parseRecommendationLine(raw: string): RecommendationLine {

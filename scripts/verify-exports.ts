@@ -13,6 +13,7 @@ import { coerceRoomAnalysisPayload } from "../src/lib/coerceRoomAnalysis";
 import { DEMO_TOUR_ANALYSIS } from "../src/lib/demoAnalysisFixture";
 import {
   CISCO_GUIDANCE_URL,
+  parseRecommendationItems,
   parseRecommendationLine,
 } from "../src/lib/recommendationDisplay";
 import { roomAnalysisSchema, type RoomAnalysis } from "../src/lib/roomAnalysis";
@@ -560,6 +561,21 @@ if (parsedMd.href !== CISCO_GUIDANCE_URL) {
 }
 if (parsedMd.text.includes("http") || parsedMd.text.includes("Cisco guidance")) {
   fail(`Markdown should strip from sentence: ${parsedMd.text}`);
+}
+
+const parsedFull = parseRecommendationLine(
+  "Mount a USB camera at eye level. Keep windows out of frame.",
+);
+if (parsedFull.text !== "Mount a USB camera at eye level. Keep windows out of frame.") {
+  fail(`Should keep every sentence after URL strip, got ${parsedFull.text}`);
+}
+
+const parsedJoined = parseRecommendationItems([
+  "Keep cameras at eye height.",
+  "Check backlight.",
+]);
+if (parsedJoined.text !== "Keep cameras at eye height. Check backlight.") {
+  fail(`Should join every rec string, got ${parsedJoined.text}`);
 }
 
 const clamped = clampFocusBox({ x: -0.2, y: 0.9, w: 0.8, h: 0.4 });

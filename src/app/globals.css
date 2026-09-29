@@ -572,6 +572,8 @@ body {
   cursor: pointer;
   color: inherit;
   font: inherit;
+  overflow: visible;
+  white-space: normal;
 }
 
 .results-rec-label {
@@ -589,8 +591,14 @@ body {
   line-height: 1.47;
   color: #f5f5f7;
   overflow: visible;
-  text-overflow: unset;
+  text-overflow: clip;
   white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  max-height: none;
+  line-clamp: unset;
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: unset;
 }
 
 .results-rec-link {
