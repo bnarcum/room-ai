@@ -1,0 +1,13 @@
+---
+description: Commit and push finished SnapRoom work without waiting for a separate push request
+alwaysApply: true
+---
+
+# Ship finished work
+
+After a requested change is implemented and checked, commit it and push `origin main` in the same turn. Do not wait for a separate "push".
+
+- This covers UI, layout, and other finished product changes on this repo.
+- Push with `git push origin main` only. Do not run `npx vercel deploy --prod`.
+- Do not commit secrets (`.env`, credentials, keys).
+- Do not push if the user said to hold, or if the change is only a suggestion they have not asked to build.
