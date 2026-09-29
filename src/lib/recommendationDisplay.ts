@@ -8,7 +8,6 @@ export const CISCO_GUIDANCE_URL =
 
 const MARKDOWN_LINK = /\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi;
 const RAW_URL = /https?:\/\/[^\s)\]>'"]+/gi;
-const MAX_REC_CHARS = 90;
 
 const ALLOWED_HOSTS = new Set([
   "www.cisco.com",
@@ -48,12 +47,7 @@ function tightenRecText(text: string): string {
     .replace(/\s{2,}/g, " ")
     .replace(/^[\s—–-]+|[\s—–-]+$/g, "")
     .trim();
-  t = firstSentence(t);
-  if (t.length > MAX_REC_CHARS) {
-    const cut = t.slice(0, MAX_REC_CHARS - 1);
-    t = `${cut.replace(/\s+\S*$/, "").replace(/[.,;: ]+$/, "")}…`;
-  }
-  return t;
+  return firstSentence(t);
 }
 
 export function parseRecommendationLine(raw: string): RecommendationLine {
