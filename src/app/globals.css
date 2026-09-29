@@ -650,12 +650,26 @@ body {
   white-space: normal;
 }
 
+.results-rec-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .results-rec-label {
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--seller-secondary);
+}
+
+.results-rec-more {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--seller-cyan);
 }
 
 .results-rec-text {

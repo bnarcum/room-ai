@@ -420,10 +420,18 @@ export default function ResultsClient() {
                           <button
                             type="button"
                             className="results-rec-hit"
+                            aria-expanded={line.rest ? open : undefined}
                             aria-pressed={pinnedKey === key}
                             onClick={() => togglePin(key)}
                           >
-                            <span className="results-rec-label">{title}</span>
+                            <span className="results-rec-label-row">
+                              <span className="results-rec-label">{title}</span>
+                              {line.rest ? (
+                                <span className="results-rec-more">
+                                  {open ? "Hide" : "Details"}
+                                </span>
+                              ) : null}
+                            </span>
                             {line.lead ? (
                               <span className="results-rec-text">{line.lead}</span>
                             ) : null}
