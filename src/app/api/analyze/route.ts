@@ -7,7 +7,10 @@ import {
   roomAnalysisSchema,
   type RoomAnalysis,
 } from "@/lib/roomAnalysis";
-import { coerceRoomAnalysisPayload } from "@/lib/coerceRoomAnalysis";
+import {
+  coerceRoomAnalysisPayload,
+  parseKnownCeilingHeight,
+} from "@/lib/coerceRoomAnalysis";
 import { extractBalancedJsonObject } from "@/lib/extractModelJson";
 import { prepareImageForVisionAsync } from "@/lib/imageMime";
 import { MAX_IMAGE_FILE_BYTES_VERCEL } from "@/lib/uploadLimits";
@@ -315,7 +318,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const coerced = coerceRoomAnalysisPayload(parsedJson);
+    const parsedKnownCeiling = parseKnownCeilingHeight(knownCeilingHeight, unit);
+    const coerced = coerceRoomAnalysisPayload(
+      parsedJson,
+      parsedKnownCeiling !== undefined
+        ? { knownCeilingHeight: parsedKnownCeiling, unit }
+        : undefined,
+    );
     const parsed = roomAnalysisSchema.safeParse(coerced);
     if (!parsed.success) {
       const flat = parsed.error.flatten();

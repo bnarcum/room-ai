@@ -9,6 +9,54 @@ import {
 } from "./roomSizing";
 import { RECOMMENDATION_CATEGORY_FALLBACKS } from "./webexDesignerResources";
 
+const FT_PER_M = 3.28084;
+
+export type CoerceRoomAnalysisOptions = {
+  knownCeilingHeight?: number;
+  unit?: "feet" | "meters";
+};
+
+function convertLength(
+  value: number,
+  from: "feet" | "meters",
+  to: "feet" | "meters",
+): number {
+  if (from === to) return value;
+  return from === "meters" ? value * FT_PER_M : value / FT_PER_M;
+}
+
+/**
+ * Parse a user-entered ceiling such as "10", "10 ft", "10ft", or "3 m"
+ * into the fallback unit. Invalid input returns undefined.
+ */
+export function parseKnownCeilingHeight(
+  raw: unknown,
+  fallbackUnit: "feet" | "meters" = "feet",
+): number | undefined {
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
+    return raw;
+  }
+  if (typeof raw !== "string") return undefined;
+  const s = raw.trim();
+  if (!s) return undefined;
+  const m = s.match(/^(\d+(?:\.\d+)?)\s*(ft|feet|foot|m|meter|meters)?$/i);
+  if (!m) return undefined;
+  const value = parseFloat(m[1]);
+  if (!Number.isFinite(value) || value <= 0) return undefined;
+  const suffix = (m[2] ?? "").toLowerCase();
+  let from: "feet" | "meters" = fallbackUnit;
+  if (suffix === "m" || suffix === "meter" || suffix === "meters") {
+    from = "meters";
+  } else if (suffix === "ft" || suffix === "feet" || suffix === "foot") {
+    from = "feet";
+  }
+  return convertLength(value, from, fallbackUnit);
+}
+
+function isValidKnownCeilingHeight(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
 const PAD_CHECK = "Confirm network drops, power, and cable paths for your gear.";
 const PAD_CONSTRAINT =
   "Single-photo view limits precision; verify measurements on site.";
@@ -94,8 +142,12 @@ function stringArrayOptional(v: unknown): string[] {
 
 /**
  * Repair common model quirks (numeric strings, empty arrays, missing keys) before Zod.
+ * A valid `knownCeilingHeight` is authoritative — never run the home-office 9 ft cap.
  */
-export function coerceRoomAnalysisPayload(raw: unknown): unknown {
+export function coerceRoomAnalysisPayload(
+  raw: unknown,
+  options?: CoerceRoomAnalysisOptions,
+): unknown {
   const base =
     raw && typeof raw === "object"
       ? (JSON.parse(JSON.stringify(raw)) as Record<string, unknown>)
@@ -113,12 +165,34 @@ export function coerceRoomAnalysisPayload(raw: unknown): unknown {
   const width = axisWithRange(dims.width, dims.widthMin, dims.widthMax, 12, confidence);
   let height = axisWithRange(dims.height, dims.heightMin, dims.heightMax, 9, confidence);
 
+  const refIn = base.detectedReference;
+  const refPeek =
+    refIn && typeof refIn === "object"
+      ? (refIn as Record<string, unknown>)
+      : {};
+  const existingRefType = str(refPeek.type, "none").toLowerCase().replace(/\s+/g, "-");
+  const knownRaw = options?.knownCeilingHeight;
+  const knownFromOptions = isValidKnownCeilingHeight(knownRaw)
+    ? convertLength(knownRaw, options?.unit ?? "feet", unit)
+    : undefined;
+  const hasKnownCeiling =
+    knownFromOptions !== undefined || existingRefType === "known-ceiling-height";
+
+  if (knownFromOptions !== undefined) {
+    height = {
+      mid: knownFromOptions,
+      min: knownFromOptions,
+      max: knownFromOptions,
+    };
+  }
+
   const rsIn = base.roomSummary;
   const rsPeek =
     rsIn && typeof rsIn === "object" ? (rsIn as Record<string, unknown>) : {};
   const occupancyPeek = Math.max(0, Math.round(num(rsPeek.occupancy, 0)));
   const likelyUsePeek = resolveLikelyUse(str(rsPeek.likelyUse, "unknown"), occupancyPeek);
-  if (isPersonalWorkspace(likelyUsePeek)) {
+  // Cap only model guesses. User-entered / stored known ceilings stay as-is.
+  if (isPersonalWorkspace(likelyUsePeek) && !hasKnownCeiling) {
     height = capPersonalWorkspaceHeight(unit, height.mid, height.min, height.max);
   }
 
@@ -140,16 +214,15 @@ export function coerceRoomAnalysisPayload(raw: unknown): unknown {
     ),
   };
 
-  const refIn = base.detectedReference;
-  const ref =
-    refIn && typeof refIn === "object"
-      ? (refIn as Record<string, unknown>)
-      : {};
   base.detectedReference = {
-    type: str(ref.type, "none"),
+    type: hasKnownCeiling
+      ? "known-ceiling-height"
+      : str(refPeek.type, "none"),
     notes: str(
-      ref.notes,
-      "Interpreted reference settings from the request context.",
+      refPeek.notes,
+      hasKnownCeiling
+        ? "User-provided ceiling height."
+        : "Interpreted reference settings from the request context.",
     ),
   };
 

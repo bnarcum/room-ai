@@ -9,7 +9,10 @@ import {
   VIDEO_ROOM_CALC_FILE_VERSION,
   buildVideoRoomCalculatorJson,
 } from "../src/lib/collabExperienceExport";
-import { coerceRoomAnalysisPayload } from "../src/lib/coerceRoomAnalysis";
+import {
+  coerceRoomAnalysisPayload,
+  type CoerceRoomAnalysisOptions,
+} from "../src/lib/coerceRoomAnalysis";
 import { DEMO_TOUR_ANALYSIS } from "../src/lib/demoAnalysisFixture";
 import {
   CISCO_GUIDANCE_URL,
@@ -34,8 +37,13 @@ function must<T>(value: T | undefined, message: string): T {
   return value;
 }
 
-function analysisFrom(partial: unknown): RoomAnalysis {
-  const parsed = roomAnalysisSchema.safeParse(coerceRoomAnalysisPayload(partial));
+function analysisFrom(
+  partial: unknown,
+  options?: CoerceRoomAnalysisOptions,
+): RoomAnalysis {
+  const parsed = roomAnalysisSchema.safeParse(
+    coerceRoomAnalysisPayload(partial, options),
+  );
   if (!parsed.success) {
     throw new Error(parsed.error.message);
   }
@@ -407,6 +415,40 @@ if (officeVrc.name !== "SnapRoom — Home office") {
 if (office.dimensions.height > 9 || Number(officeVrc.room.roomHeight) > 9) {
   fail(
     `Home office height should cap at 9 ft, got analysis ${office.dimensions.height} VRC ${officeVrc.room.roomHeight}`,
+  );
+}
+
+const knownOffice = analysisFrom(
+  {
+    dimensions: {
+      unit: "feet",
+      length: 10,
+      width: 12,
+      height: 8,
+      heightMin: 7.5,
+      heightMax: 8.5,
+      confidence: 0.62,
+    },
+    roomSummary: {
+      likelyUse: "home",
+      occupancy: 1,
+      primaryScreenDiagonalInches: 55,
+      screenCount: 1,
+    },
+  },
+  { knownCeilingHeight: 10, unit: "feet" },
+);
+const knownOfficeVrc = buildVideoRoomCalculatorJson(knownOffice);
+const knownOfficeDesigner = buildWebexDesignerRoomJson(knownOffice);
+if (knownOffice.dimensions.height !== 10) {
+  fail(`Known 10 ft ceiling must stay 10, got ${knownOffice.dimensions.height}`);
+}
+if (Number(knownOfficeVrc.room.roomHeight) !== 10) {
+  fail(`VRC roomHeight must use analysis height 10, got ${knownOfficeVrc.room.roomHeight}`);
+}
+if (knownOfficeDesigner.roomShape.height !== 3.048) {
+  fail(
+    `Designer roomShape.height must be 10 ft in meters (3.048), got ${knownOfficeDesigner.roomShape.height}`,
   );
 }
 if (officeGeo.layoutKind !== "huddle") fail("Home office layout should be huddle.");
