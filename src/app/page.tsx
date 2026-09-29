@@ -293,15 +293,21 @@ export default function Home() {
                 Ceiling height{" "}
                 <span className="home-optional">optional</span>
               </label>
-              <input
-                id="ceiling-height"
-                type="text"
-                value={ceilingHeight}
-                onChange={(event) => setCeilingHeight(event.target.value)}
-                placeholder="9 ft or 2.7 m"
-                autoComplete="off"
-                className="home-input"
-              />
+              <div className="home-input-wrap">
+                <input
+                  id="ceiling-height"
+                  type="text"
+                  inputMode="decimal"
+                  value={ceilingHeight}
+                  onChange={(event) => setCeilingHeight(event.target.value)}
+                  placeholder={unit === "feet" ? "e.g. 9" : "e.g. 2.7"}
+                  autoComplete="off"
+                  className="home-input"
+                />
+                <span className="home-input-unit" aria-hidden="true">
+                  {unit === "feet" ? "ft" : "m"}
+                </span>
+              </div>
 
               <div
                 className="home-units"
