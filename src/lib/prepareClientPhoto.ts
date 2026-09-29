@@ -2,6 +2,7 @@
  * Browser-side shrink so multipart POST stays under Vercel’s ~4.5 MiB limit (413 otherwise).
  */
 
+import { MAX_ANALYZE_PHOTOS } from "@/lib/analyzePhotos";
 import { MAX_IMAGE_FILE_BYTES_VERCEL } from "@/lib/uploadLimits";
 
 export const CLIENT_UPLOAD_SAFE_BYTES = MAX_IMAGE_FILE_BYTES_VERCEL;
@@ -44,11 +45,15 @@ function bitmapToJpegBlob(
 }
 
 /**
- * Ensures the file fits under Vercel's multipart limit by re-encoding large images as JPEG.
- * Original files under {@link CLIENT_UPLOAD_SAFE_BYTES} are returned unchanged.
+ * Ensures the file fits under a byte budget by re-encoding large images as JPEG.
+ * Original files under {@link maxBytes} are returned unchanged.
  */
-export async function preparePhotoForUpload(file: File): Promise<File> {
-  if (file.size <= CLIENT_UPLOAD_SAFE_BYTES) {
+export async function preparePhotoForUpload(
+  file: File,
+  maxBytes: number = CLIENT_UPLOAD_SAFE_BYTES,
+): Promise<File> {
+  const budget = Math.max(32 * 1024, maxBytes);
+  if (file.size <= budget) {
     return file;
   }
 
@@ -67,7 +72,7 @@ export async function preparePhotoForUpload(file: File): Promise<File> {
 
     for (let attempt = 0; attempt < 18; attempt++) {
       const blob = await bitmapToJpegBlob(bmp, maxDim, quality);
-      if (blob.size <= CLIENT_UPLOAD_SAFE_BYTES) {
+      if (blob.size <= budget) {
         const outName = `${stripExtension(file.name) || "room"}.jpg`;
         return new File([blob], outName, { type: "image/jpeg" });
       }
@@ -81,4 +86,33 @@ export async function preparePhotoForUpload(file: File): Promise<File> {
   } finally {
     bmp.close();
   }
+}
+
+export function perPhotoUploadBudget(photoCount: number): number {
+  const count = Math.max(1, Math.min(MAX_ANALYZE_PHOTOS, Math.floor(photoCount)));
+  return Math.floor(CLIENT_UPLOAD_SAFE_BYTES / count);
+}
+
+/** Compress every selected file so the multipart POST stays under Vercel’s body cap. */
+export async function preparePhotosForUpload(files: File[]): Promise<File[]> {
+  const capped = files.slice(0, MAX_ANALYZE_PHOTOS);
+  if (capped.length === 0) return [];
+
+  async function prepareSet(set: File[]): Promise<File[]> {
+    const budget = perPhotoUploadBudget(set.length);
+    const out: File[] = [];
+    for (const file of set) {
+      out.push(await preparePhotoForUpload(file, budget));
+    }
+    return out;
+  }
+
+  let prepared = await prepareSet(capped);
+  while (
+    prepared.length > 2 &&
+    prepared.reduce((n, f) => n + f.size, 0) > CLIENT_UPLOAD_SAFE_BYTES
+  ) {
+    prepared = await prepareSet(prepared.slice(0, 2));
+  }
+  return prepared;
 }

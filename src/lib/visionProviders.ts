@@ -1,3 +1,4 @@
+import type { VisionImagePart } from "@/lib/analyzePhotos";
 import {
   anthropicCredentialFromEnv,
   anthropicVisionMessages,
@@ -115,14 +116,17 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+type VisionCallParams = {
+  system: string;
+  userText: string;
+  mediaType?: string;
+  imageBase64?: string;
+  images?: VisionImagePart[];
+};
+
 async function callProvider(
   entry: ChainEntry,
-  params: {
-    system: string;
-    userText: string;
-    mediaType: string;
-    imageBase64: string;
-  },
+  params: VisionCallParams,
 ): Promise<string> {
   if (entry.provider === "anthropic") {
     const credential = anthropicCredentialFromEnv();
@@ -134,6 +138,7 @@ async function callProvider(
       userText: params.userText,
       mediaType: params.mediaType,
       imageBase64: params.imageBase64,
+      images: params.images,
       maxTokens: 16384,
       temperature: 0,
     });
@@ -148,18 +153,16 @@ async function callProvider(
     userText: params.userText,
     mediaType: params.mediaType,
     imageBase64: params.imageBase64,
+    images: params.images,
   });
 }
 
 /**
  * Claude Sonnet 5 → Haiku, then optional Gemini 3 Pro when GEMINI_API_KEY is set.
  */
-export async function runVisionJsonWithFallback(params: {
-  system: string;
-  userText: string;
-  mediaType: string;
-  imageBase64: string;
-}): Promise<VisionJsonOk> {
+export async function runVisionJsonWithFallback(
+  params: VisionCallParams,
+): Promise<VisionJsonOk> {
   const chain = buildVisionProviderChain();
   if (chain.length === 0) {
     throw new Error(missingVisionCredentialsMessage());

@@ -19,6 +19,7 @@ export default function Home() {
   const { active: tourActive, analyzing: tourAnalyzing, canDemoAnalyze, startDemoAnalyze } =
     useTourDemo();
   const [file, setFile] = useState<File | null>(null);
+  const [extraFiles, setExtraFiles] = useState<File[]>([]);
   const [ceilingHeight, setCeilingHeight] = useState("");
   const [unit, setUnit] = useState<"feet" | "meters">("feet");
   const [status, setStatus] = useState<
@@ -32,15 +33,27 @@ export default function Home() {
     return URL.createObjectURL(file);
   }, [file]);
 
+  const extraPreviewUrls = useMemo(
+    () => extraFiles.map((extra) => URL.createObjectURL(extra)),
+    [extraFiles],
+  );
+
   const displayPreviewUrl =
     previewUrl ?? (tourActive ? DEMO_TOUR_ROOM_PHOTO : null);
   const isAnalyzing = status === "uploading" || tourAnalyzing;
+  const canAddAngle = Boolean(file) && extraFiles.length < 2;
 
   useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  useEffect(() => {
+    return () => {
+      extraPreviewUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [extraPreviewUrls]);
 
   async function onAnalyze() {
     setError(null);
@@ -57,6 +70,7 @@ export default function Home() {
     setStatus("uploading");
     const result = await runClientRoomAnalysis({
       file,
+      extraFiles,
       unit,
       ceilingHeight,
     });
@@ -83,6 +97,28 @@ export default function Home() {
       event.preventDefault();
       document.getElementById("room-photo")?.click();
     }
+  }
+
+  function addExtraFiles(list: FileList | null) {
+    const picked = Array.from(list ?? []).filter(isDroppedImage);
+    if (picked.length === 0) return;
+    setExtraFiles((prev) => [...prev, ...picked].slice(0, 2));
+  }
+
+  function removeExtra(index: number) {
+    setExtraFiles((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function promoteExtra(index: number) {
+    if (!file) return;
+    const nextPrimary = extraFiles[index];
+    if (!nextPrimary) return;
+    setFile(nextPrimary);
+    setExtraFiles((prev) => {
+      const copy = [...prev];
+      copy[index] = file;
+      return copy;
+    });
   }
 
   return (
@@ -147,6 +183,50 @@ export default function Home() {
               <p className="home-filename">{file.name}</p>
             ) : tourActive ? (
               <p className="home-filename">conference-room.png</p>
+            ) : null}
+            {file ? (
+              <div className="home-angles" data-testid="home-extra-angles">
+                {extraFiles.map((extra, index) => (
+                  <div key={`${extra.name}-${index}`} className="home-angle">
+                    <button
+                      type="button"
+                      className="home-angle-thumb"
+                      onClick={() => promoteExtra(index)}
+                      title="Use as primary photo"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={extraPreviewUrls[index]} alt={`Extra angle ${index + 1}`} />
+                    </button>
+                    <button
+                      type="button"
+                      className="home-angle-remove"
+                      onClick={() => removeExtra(index)}
+                      aria-label={`Remove extra angle ${index + 1}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                {canAddAngle ? (
+                  <label className="home-add-angle" htmlFor="room-photo-extra">
+                    <input
+                      id="room-photo-extra"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(event) => {
+                        addExtraFiles(event.target.files);
+                        event.target.value = "";
+                      }}
+                      className="home-file-input"
+                    />
+                    Add another angle (optional)
+                  </label>
+                ) : null}
+                <p className="home-angle-hint">
+                  Display wall, then the opposite corner.
+                </p>
+              </div>
             ) : null}
           </div>
 

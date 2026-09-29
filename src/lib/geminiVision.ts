@@ -1,5 +1,7 @@
 /** Gemini vision → JSON text. Key is read from env; never hardcoded. */
 
+import { normalizeVisionImages, type VisionImagePart } from "@/lib/analyzePhotos";
+
 export function geminiApiKeyFromEnv(): string | null {
   for (const key of ["GEMINI_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY", "GOOGLE_API_KEY"]) {
     const v = process.env[key];
@@ -37,11 +39,13 @@ export async function geminiVisionJson(params: {
   model: string;
   system: string;
   userText: string;
-  mediaType: string;
-  imageBase64: string;
+  mediaType?: string;
+  imageBase64?: string;
+  images?: VisionImagePart[];
 }): Promise<string> {
   const model = encodeURIComponent(params.model);
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const images = normalizeVisionImages(params);
 
   const res = await fetch(`${url}?key=${encodeURIComponent(params.apiKey)}`, {
     method: "POST",
@@ -53,12 +57,12 @@ export async function geminiVisionJson(params: {
           role: "user",
           parts: [
             { text: params.userText },
-            {
+            ...images.map((image) => ({
               inlineData: {
-                mimeType: params.mediaType,
-                data: params.imageBase64,
+                mimeType: image.mediaType,
+                data: image.imageBase64,
               },
-            },
+            })),
           ],
         },
       ],

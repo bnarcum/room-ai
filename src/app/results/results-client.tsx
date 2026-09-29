@@ -36,6 +36,7 @@ import {
 } from "@/lib/roomSizing";
 import {
   loadRoomAnalysisPayload,
+  loadRoomExtraPhotoPreviews,
   loadRoomPhotoPreview,
 } from "@/lib/resultStorage";
 import { buildWebexDesignerSummaryUrl } from "@/lib/webexDesignerQuickUrl";
@@ -73,6 +74,8 @@ export default function ResultsClient() {
   const [decoded, setDecoded] = useState<AnalyzeEnvelope | null>(null);
   const [ready, setReady] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [extraPreviews, setExtraPreviews] = useState<string[]>([]);
+  const [heroSrc, setHeroSrc] = useState<string | null>(null);
   const [hoveredKey, setHoveredKey] = useState<FocusRegionKey | null>(null);
   const [pinnedKey, setPinnedKey] = useState<FocusRegionKey | null>(null);
 
@@ -92,7 +95,11 @@ export default function ResultsClient() {
         const stored = loadRoomAnalysisPayload();
         setDecoded(stored as AnalyzeEnvelope | null);
       }
-      setPhotoPreview(loadRoomPhotoPreview());
+      const storedPhoto = loadRoomPhotoPreview();
+      const storedExtras = loadRoomExtraPhotoPreviews();
+      setPhotoPreview(storedPhoto);
+      setExtraPreviews(storedExtras);
+      setHeroSrc(storedPhoto);
     } catch {
       setDecoded(null);
     } finally {
@@ -122,11 +129,13 @@ export default function ResultsClient() {
     : null;
 
   const loading = !ready;
-  const splitLayout = Boolean(!loading && analysis && photoPreview);
+  const displayHero = heroSrc ?? photoPreview;
+  const showingPrimary = Boolean(photoPreview && displayHero === photoPreview);
+  const splitLayout = Boolean(!loading && analysis && displayHero);
   const canExportVrc = Boolean(ready && analysis);
   const activeKey = hoveredKey ?? pinnedKey;
   const activeRegion =
-    analysis && activeKey
+    analysis && activeKey && showingPrimary
       ? resolveFocusRegion(
           activeKey,
           analysis.focusRegions,
@@ -253,20 +262,63 @@ export default function ResultsClient() {
         {!loading && analysis ? (
           <div
             className={
-              photoPreview ? "results-stack results-stack--split" : "results-stack"
+              displayHero ? "results-stack results-stack--split" : "results-stack"
             }
           >
-            {photoPreview ? (
+            {displayHero ? (
               <div className="results-media">
                 <ResultsPhotoHero
-                  src={photoPreview}
-                  region={activeRegion}
-                  captionKey={activeKey}
+                  src={displayHero}
+                  region={showingPrimary ? activeRegion : null}
+                  captionKey={showingPrimary ? activeKey : null}
                   onClear={() => {
                     setPinnedKey(null);
                     setHoveredKey(null);
                   }}
                 />
+                {extraPreviews.length > 0 && photoPreview ? (
+                  <div
+                    className="results-angles"
+                    data-testid="results-extra-angles"
+                    role="group"
+                    aria-label="Room photo angles"
+                  >
+                    <button
+                      type="button"
+                      className={
+                        showingPrimary
+                          ? "results-angle-thumb is-active"
+                          : "results-angle-thumb"
+                      }
+                      onClick={() => setHeroSrc(photoPreview)}
+                      aria-pressed={showingPrimary}
+                      aria-label="Show primary photo"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={photoPreview} alt="" />
+                    </button>
+                    {extraPreviews.map((src, index) => {
+                      const selected = displayHero === src;
+                      return (
+                        <button
+                          key={`${index}-${src.slice(0, 24)}`}
+                          type="button"
+                          className={
+                            selected
+                              ? "results-angle-thumb is-active"
+                              : "results-angle-thumb"
+                          }
+                          onClick={() => setHeroSrc(src)}
+                          aria-pressed={selected}
+                          aria-label={`Show extra angle ${index + 1}`}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={src} alt="" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 

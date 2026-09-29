@@ -1,5 +1,7 @@
 /** Direct Anthropic Messages API — avoids AI SDK multimodal edge cases on Vercel/Next. */
 
+import { normalizeVisionImages, type VisionImagePart } from "@/lib/analyzePhotos";
+
 export type AnthropicCredential =
   | { kind: "apiKey"; apiKey: string }
   | { kind: "bearer"; token: string };
@@ -76,8 +78,9 @@ export async function anthropicVisionMessages(params: {
   model: string;
   system: string;
   userText: string;
-  mediaType: string;
-  imageBase64: string;
+  mediaType?: string;
+  imageBase64?: string;
+  images?: VisionImagePart[];
   maxTokens?: number;
   temperature?: number;
 }): Promise<string> {
@@ -86,26 +89,26 @@ export async function anthropicVisionMessages(params: {
     model,
     system,
     userText,
-    mediaType,
-    imageBase64,
     maxTokens = 16384,
     temperature = 0.25,
   } = params;
+
+  const images = normalizeVisionImages(params);
 
   const messagesPayload = [
     {
       role: "user",
       content: [
-        {
-          type: "image",
+        ...images.map((image) => ({
+          type: "image" as const,
           source: {
-            type: "base64",
-            media_type: mediaType,
-            data: imageBase64,
+            type: "base64" as const,
+            media_type: image.mediaType,
+            data: image.imageBase64,
           },
-        },
+        })),
         {
-          type: "text",
+          type: "text" as const,
           text: userText,
         },
       ],

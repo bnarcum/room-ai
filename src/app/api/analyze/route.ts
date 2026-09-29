@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { NextResponse } from "next/server";
+import { collectAnalyzePhotoBlobs } from "@/lib/analyzePhotos";
 import {
   buildWebexStyleRubric,
   roomAnalysisSchema,
@@ -92,28 +93,41 @@ export async function POST(request: Request) {
     );
   }
 
-  const photo = form.get("photo");
-  if (!(photo instanceof Blob)) {
+  const photos: Blob[] = [];
+  let usedBytes = 0;
+  for (const candidate of collectAnalyzePhotoBlobs(form)) {
+    if (!blobLooksLikeImage(candidate)) {
+      if (photos.length === 0) {
+        return withRid(
+          { ok: false, error: "Unsupported file type. Please upload an image." },
+          { status: 400 },
+        );
+      }
+      continue;
+    }
+    if (candidate.size > MAX_BYTES) {
+      if (photos.length === 0) {
+        return withRid(
+          {
+            ok: false,
+            error:
+              "Image exceeds the hosting upload limit (~4.5 MB per request). Export a smaller JPEG — the site also compresses large photos automatically before sending.",
+          },
+          { status: 400 },
+        );
+      }
+      continue;
+    }
+    if (usedBytes + candidate.size > MAX_BYTES) {
+      continue;
+    }
+    photos.push(candidate);
+    usedBytes += candidate.size;
+  }
+
+  if (photos.length === 0) {
     return withRid(
       { ok: false, error: "Missing photo file upload." },
-      { status: 400 },
-    );
-  }
-
-  if (!blobLooksLikeImage(photo)) {
-    return withRid(
-      { ok: false, error: "Unsupported file type. Please upload an image." },
-      { status: 400 },
-    );
-  }
-
-  if (photo.size > MAX_BYTES) {
-    return withRid(
-      {
-        ok: false,
-        error:
-          "Image exceeds the hosting upload limit (~4.5 MB per request). Export a smaller JPEG — the site also compresses large photos automatically before sending.",
-      },
       { status: 400 },
     );
   }
@@ -133,18 +147,28 @@ export async function POST(request: Request) {
   const isWorkspaceDesignerRender =
     analysisContext === "workspace-designer-render";
 
-  let prepared;
+  const visionImages: { mediaType: string; imageBase64: string }[] = [];
   try {
-    prepared = await prepareImageForVisionAsync(
-      Buffer.from(await photo.arrayBuffer()),
-      photo.type || "application/octet-stream",
-    );
+    for (const photo of photos) {
+      const prepared = await prepareImageForVisionAsync(
+        Buffer.from(await photo.arrayBuffer()),
+        photo.type || "application/octet-stream",
+      );
+      visionImages.push({
+        mediaType: prepared.mediaType,
+        imageBase64: prepared.buffer.toString("base64"),
+      });
+    }
     analyzeLog({
       rid,
       stage: "image_prepared",
       context: analysisContext,
-      outBytes: prepared.buffer.length,
-      mediaType: prepared.mediaType,
+      photoCount: visionImages.length,
+      outBytes: visionImages.reduce(
+        (n, image) => n + Buffer.byteLength(image.imageBase64, "base64"),
+        0,
+      ),
+      mediaType: visionImages[0]?.mediaType,
     });
   } catch (e) {
     const msg =
@@ -156,9 +180,6 @@ export async function POST(request: Request) {
     });
     return withRid({ ok: false, error: msg }, { status: 400 });
   }
-
-  const mediaType = prepared.mediaType;
-  const imageBase64 = prepared.buffer.toString("base64");
 
   const rubric = buildWebexStyleRubric();
   const jsonShape = [
@@ -205,7 +226,9 @@ export async function POST(request: Request) {
     ? buildWorkspaceDesignerRenderSystem(rubric, jsonShape)
     : [
         "You are a room-setup expert for collaboration spaces.",
-        "You will be given ONE photo of a room and optional reference context.",
+        "You will be given one or more photos of the same room and optional reference context.",
+        "The FIRST image is the PRIMARY view (hero). Later images are extra angles for context — use all views and estimate from the combined evidence.",
+        "focusRegions boxes are relative to the PRIMARY photo only (the first image). Omit a key if that object is not visible in the primary photo.",
         "Photos may show full conference rooms, home offices, compact corners, standing desks, mixed furniture, or partial views — still produce best-effort dimensions and constraints.",
         "Photos may be real-world camera shots (glare, shadows, clutter, motion blur, odd angles) or clean marketing/render images — treat both the same: estimate anyway; never refuse analysis.",
         "Size the room as directional ranges (min/max) plus midpoints. Do not present a single L×W×H as if it were surveyed.",
@@ -224,7 +247,7 @@ export async function POST(request: Request) {
         "- Each string is ONE short sentence (max ~90 characters). Do not paste raw URLs into the sentence.",
         "- If you cite Cisco or Webex guidance, append markdown only: [Cisco guidance](https://www.cisco.com/c/en/us/products/collaboration-endpoints/index.html).",
         "- Ground advice in what is visible in the photo or render; where visibility is limited, say so and suggest a safe default.",
-        "- Add focusRegions boxes only for objects actually in the photo (TV, monitor, chair, lights, window, desk). Coordinates are 0–1 from the top-left. Omit a key if that object is not visible.",
+        "- Add focusRegions boxes only for objects actually in the PRIMARY photo (TV, monitor, chair, lights, window, desk). Coordinates are 0–1 from the top-left of the first image. Omit a key if that object is not visible there.",
         "- Do not repeat one generic sentence across every category.",
         "",
         rubric,
@@ -239,9 +262,12 @@ export async function POST(request: Request) {
       ? `Known ceiling height: ${knownCeilingHeight}. Use it to anchor heightMin/heightMax.`
       : "No known ceiling height provided. Use door, table, chair, or ceiling cues.",
     isWorkspaceDesignerRender ? WORKSPACE_DESIGNER_RENDER_USER_FOOTER : null,
+    visionImages.length > 1
+      ? `You have ${visionImages.length} photos. Image 1 is primary; images 2+ are extra angles. Use all views; estimate from combined evidence. focusRegions must be relative to image 1 only.`
+      : null,
     isWorkspaceDesignerRender
       ? "Task: Evaluate this Workspace Designer render for hybrid-meeting readiness; estimate dimension ranges from depicted geometry and scale cues; fill observedItems with every visible collaboration-relevant object (displays, codecs/bars, cameras, seating, laptops, plants, decor). Name items consistently when you reference them in recommendations or quickChecklist."
-      : "Task: Estimate directional length/width/height ranges plus midpoints. Classify home/small-office vs conference from furniture (standing desk + consumer TV + one chair = home or small-office). occupancy is visible chairs only. Fill observedItems from the photo. Estimate primaryScreenDiagonalInches. Write short camera, display, audio, lighting, and network recommendations with optional [Cisco guidance](url) markdown — no raw URLs. Return focusRegions boxes (0–1, top-left) for the TV/monitor, camera/webcam, chair, lights/window, and desk/network cluster when those objects are visible.",
+      : "Task: Estimate directional length/width/height ranges plus midpoints. Classify home/small-office vs conference from furniture (standing desk + consumer TV + one chair = home or small-office). occupancy is visible chairs only. Fill observedItems from the photo(s). Estimate primaryScreenDiagonalInches. Write short camera, display, audio, lighting, and network recommendations with optional [Cisco guidance](url) markdown — no raw URLs. Return focusRegions boxes (0–1, top-left of the PRIMARY photo) for the TV/monitor, camera/webcam, chair, lights/window, and desk/network cluster when those objects are visible in the first image.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -250,8 +276,7 @@ export async function POST(request: Request) {
     const vision = await runVisionJsonWithFallback({
       system,
       userText,
-      mediaType,
-      imageBase64,
+      images: visionImages,
     });
     const assistantOut = vision.text;
     const successModelId = vision.model;
