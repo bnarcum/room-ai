@@ -50,6 +50,17 @@ export function buildVisionProviderChain(): ChainEntry[] {
   const out: ChainEntry[] = [];
   const seen = new Set<string>();
 
+  if (hasGeminiCredentials()) {
+    const model = resolveGeminiModelId(
+      process.env.GEMINI_MODEL ?? process.env.GOOGLE_MODEL,
+    );
+    const key = `google:${model}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push({ provider: "google", model });
+    }
+  }
+
   if (hasAnthropicCredentials()) {
     const primary = resolveAnthropicModelId(process.env.ANTHROPIC_MODEL);
     const fb = resolveFallbackModelId(process.env.ANTHROPIC_FALLBACK_MODEL);
@@ -62,22 +73,11 @@ export function buildVisionProviderChain(): ChainEntry[] {
     }
   }
 
-  if (hasGeminiCredentials()) {
-    const model = resolveGeminiModelId(
-      process.env.GEMINI_MODEL ?? process.env.GOOGLE_MODEL,
-    );
-    const key = `google:${model}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      out.push({ provider: "google", model });
-    }
-  }
-
   return out;
 }
 
 export function missingVisionCredentialsMessage(): string {
-  return "Missing vision credentials. Set ANTHROPIC_API_KEY (Claude Sonnet 5) and/or GEMINI_API_KEY (Gemini 3 Pro) for Production, then redeploy.";
+  return "Missing vision credentials. Set GEMINI_API_KEY (Gemini 3 Pro) and/or ANTHROPIC_API_KEY (Claude Sonnet 5) for Production, then redeploy.";
 }
 
 function isAuthLikeError(message: string): boolean {
@@ -158,7 +158,7 @@ async function callProvider(
 }
 
 /**
- * Claude Sonnet 5 → Haiku, then optional Gemini 3 Pro when GEMINI_API_KEY is set.
+ * Gemini 3 Pro first. Claude Sonnet 5, then Haiku, only if Gemini is missing or fails.
  */
 export async function runVisionJsonWithFallback(
   params: VisionCallParams,
