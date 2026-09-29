@@ -11,7 +11,7 @@ export function geminiApiKeyFromEnv(): string | null {
 }
 
 export function resolveGeminiModelId(explicit: string | undefined): string {
-  const fallback = "gemini-3-pro-preview";
+  const fallback = "gemini-3.1-pro-preview";
   if (!explicit?.trim()) return fallback;
   return explicit.trim();
 }

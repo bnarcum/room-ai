@@ -81,7 +81,7 @@ async function callProvider(
   });
 }
 
-/** Gemini 3 Pro only. Retries transient failures. Does not call Claude. */
+/** Gemini 3.1 Pro only. Retries transient failures. Does not call Claude. */
 export async function runVisionJsonWithFallback(
   params: VisionCallParams,
 ): Promise<VisionJsonOk> {
