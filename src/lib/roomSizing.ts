@@ -109,10 +109,62 @@ export function resultsHeadlineTitle(analysis: RoomAnalysis): string {
   return likelyUseHeadline(analysis.roomSummary.likelyUse);
 }
 
+export function ceilingWasProvided(analysis: RoomAnalysis): boolean {
+  return analysis.detectedReference.type === "known-ceiling-height";
+}
+
+/** Floor size is always an estimate. A typed ceiling is called out on its own. */
+export function resultsSizeCaption(analysis: RoomAnalysis): string {
+  const d = analysis.dimensions;
+  const suffix = d.unit === "meters" ? "m" : "ft";
+  const floor = `about ${Math.round(d.length)} × ${Math.round(d.width)} ${suffix}`;
+  if (ceilingWasProvided(analysis)) {
+    return `${floor} · ceiling ${round1(d.height)} ${suffix}`;
+  }
+  return `about ${Math.round(d.length)} × ${Math.round(d.width)} × ${round1(d.height)} ${suffix}`;
+}
+
+export function resultsVerdict(analysis: RoomAnalysis): string {
+  const seats = effectiveSeatCount(analysis);
+  const personal = isPersonalWorkspace(analysis.roomSummary.likelyUse);
+  const who = personal
+    ? seats <= 1
+      ? "One-person workspace."
+      : `${seats}-person workspace.`
+    : `${likelyUseHeadline(analysis.roomSummary.likelyUse)} for about ${seats} ${seats === 1 ? "seat" : "seats"}.`;
+  const measure = ceilingWasProvided(analysis)
+    ? "Ceiling height is what you entered. Length and width are estimated from the photo."
+    : "Length, width, and height are estimated from the photo.";
+  const raw = analysis.roomSummary.keyConstraints.find((item) => item.trim()) ?? "";
+  const constraint = firstSentence(raw);
+  const useful =
+    constraint && !/single-photo|verify measurements|directional range/i.test(constraint)
+      ? constraint
+      : "";
+  return [who, measure, useful].filter(Boolean).join(" ");
+}
+
+export function resultsSeenLine(analysis: RoomAnalysis): string {
+  const items = [
+    ...analysis.observedItems.electronicsAndDevices,
+    ...analysis.observedItems.otherNotable,
+    ...analysis.observedItems.plantsAndDecor,
+  ]
+    .map((item) => item.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  const unique: string[] = [];
+  for (const item of items) {
+    if (unique.some((have) => have.toLowerCase() === item.toLowerCase())) continue;
+    unique.push(item);
+    if (unique.length === 4) break;
+  }
+  return unique.join(" · ");
+}
+
 export function resultsHeadlineMeta(analysis: RoomAnalysis): string {
   const seats = effectiveSeatCount(analysis);
   const seatWord = seats === 1 ? "seat" : "seats";
-  return `${seats} ${seatWord} · ${formatAboutPlanSize(analysis)}`;
+  return `${seats} ${seatWord} · ${resultsSizeCaption(analysis)}`;
 }
 
 export function resultsHeadline(analysis: RoomAnalysis): string {

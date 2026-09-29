@@ -29,6 +29,8 @@ import {
   designerSeatCount,
   effectiveSeatCount,
   resultsHeadline,
+  resultsSizeCaption,
+  resultsVerdict,
 } from "../src/lib/roomSizing";
 import { buildWebexDesignerSummaryUrl } from "../src/lib/webexDesignerQuickUrl";
 
@@ -445,6 +447,12 @@ if (knownOffice.dimensions.height !== 10) {
 }
 if (Number(knownOfficeVrc.room.roomHeight) !== 10) {
   fail(`VRC roomHeight must use analysis height 10, got ${knownOfficeVrc.room.roomHeight}`);
+}
+if (resultsSizeCaption(knownOffice) !== "about 10 × 12 ft · ceiling 10 ft") {
+  fail(`Known ceiling caption should separate the estimate, got ${resultsSizeCaption(knownOffice)}`);
+}
+if (!resultsVerdict(knownOffice).includes("Ceiling height is what you entered.")) {
+  fail(`Verdict should say the ceiling was entered, got ${resultsVerdict(knownOffice)}`);
 }
 if (knownOfficeDesigner.roomShape.height !== 3.048) {
   fail(

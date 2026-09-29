@@ -62,6 +62,22 @@ export function parseRecommendationItems(
   return parseRecommendationLine(joinRecommendationItems(items));
 }
 
+export function splitRecommendation(
+  items: readonly string[] | undefined,
+): RecommendationLine & { lead: string; rest: string } {
+  const line = parseRecommendationItems(items);
+  const lead = firstRecommendationSentence(line.text);
+  const rest = line.text.slice(lead.length).trim();
+  return { ...line, lead, rest };
+}
+
+function firstRecommendationSentence(text: string): string {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!t) return "";
+  const m = t.match(/^(.+?[.!?])(?:\s|$)/);
+  return (m ? m[1] : t).trim();
+}
+
 export function parseRecommendationLine(raw: string): RecommendationLine {
   let href: string | undefined;
   let text = (raw ?? "").replace(/\s+/g, " ").trim();

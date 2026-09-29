@@ -22,7 +22,7 @@ import {
 } from "@/lib/focusRegions";
 import {
   CISCO_GUIDANCE_LABEL,
-  parseRecommendationItems,
+  splitRecommendation,
 } from "@/lib/recommendationDisplay";
 import {
   buildWebexDesignerRoomJson,
@@ -33,6 +33,9 @@ import {
   designerSeatCount,
   resultsHeadlineMeta,
   resultsHeadlineTitle,
+  resultsSeenLine,
+  resultsSizeCaption,
+  resultsVerdict,
 } from "@/lib/roomSizing";
 import {
   loadRoomAnalysisPayload,
@@ -182,8 +185,8 @@ export default function ResultsClient() {
     onDownloadVrcJson();
   }
 
-  function onDownloadWebexDesignerJson() {
-    if (!analysis) return;
+  function downloadWebexDesignerJson() {
+    if (!analysis) return false;
     const doc = buildWebexDesignerRoomJson(analysis);
     const text = JSON.stringify(doc, null, 2);
     const blob = new Blob([text], { type: "application/json" });
@@ -193,19 +196,21 @@ export default function ResultsClient() {
     a.download = webexDesignerJsonFileName(doc.title);
     a.click();
     URL.revokeObjectURL(url);
+    return true;
+  }
+
+  function onDownloadWebexDesignerJson() {
+    if (!downloadWebexDesignerJson()) return;
     setExportTip(
-      <>
-        Downloaded Designer JSON — drag onto the 3D view at{" "}
-        <a
-          href="https://designer.webex.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="results-quiet-link"
-        >
-          designer.webex.com
-        </a>
-        .
-      </>,
+      "Downloaded this room. Drag the file onto the 3D view at designer.webex.com.",
+    );
+  }
+
+  function onOpenWorkspaceDesigner() {
+    if (!downloadWebexDesignerJson()) return;
+    window.open("https://designer.webex.com", "_blank", "noopener,noreferrer");
+    setExportTip(
+      "Downloaded this room. Drag the file onto the 3D view in Workspace Designer.",
     );
   }
 
@@ -266,16 +271,7 @@ export default function ResultsClient() {
                   src={displayHero}
                   region={showingPrimary ? activeRegion : null}
                   captionKey={showingPrimary ? activeKey : null}
-                  size={
-                    showingPrimary
-                      ? {
-                          length: analysis.dimensions.length,
-                          width: analysis.dimensions.width,
-                          height: analysis.dimensions.height,
-                          unit: analysis.dimensions.unit,
-                        }
-                      : null
-                  }
+                  sizeCaption={showingPrimary ? resultsSizeCaption(analysis) : null}
                   onClear={() => {
                     setPinnedKey(null);
                     setHoveredKey(null);
@@ -328,148 +324,177 @@ export default function ResultsClient() {
             ) : null}
 
             <div className="results-copy">
-              <section id="tour-room-read" aria-label="Room read">
-                <h1
-                  id="tour-dimensions"
-                  className="results-headline"
-                  data-testid="results-headline"
-                >
-                  <span className="results-headline-title">
-                    {resultsHeadlineTitle(analysis)}
-                  </span>
-                  <span className="results-headline-meta">
-                    {resultsHeadlineMeta(analysis)}
-                  </span>
-                </h1>
-              </section>
-
-              <section
-                id="tour-recommendations"
-                aria-label="Recommendations"
-              >
-                <ul className="results-recs">
-                  {REC_ROWS.map(([title, key]) => {
-                    const line = parseRecommendationItems(
-                      analysis.recommendations[key],
-                    );
-                    const selected = pinnedKey === key || hoveredKey === key;
-                    return (
-                      <li
-                        key={title}
-                        className={
-                          selected
-                            ? "results-rec is-active"
-                            : "results-rec"
-                        }
-                        data-testid={`rec-${title}`}
-                        onMouseEnter={() => setHoveredKey(key)}
-                        onMouseLeave={() => setHoveredKey(null)}
-                      >
-                        <button
-                          type="button"
-                          className="results-rec-hit"
-                          aria-pressed={pinnedKey === key}
-                          onClick={() => togglePin(key)}
-                        >
-                          <span className="results-rec-label">{title}</span>
-                          {line.text ? (
-                            <span className="results-rec-text">{line.text}</span>
-                          ) : null}
-                        </button>
-                        {line.href ? (
-                          <a
-                            href={line.href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="results-rec-link"
-                            data-testid={`rec-link-${title}`}
-                          >
-                            {CISCO_GUIDANCE_LABEL}
-                          </a>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </section>
-
-              <section
-                className="results-actions"
-                aria-label="Primary exports"
-                id="tour-exports"
-              >
-                <div className="results-action-row">
-                  {designerUrl ? (
-                    <a
-                      id="tour-designer-cta"
-                      href={designerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="results-btn results-btn-solid"
-                    >
-                      Open Workspace Designer
-                    </a>
+              <div className="results-pinned">
+                <section id="tour-room-read" aria-label="Room read">
+                  <h1
+                    id="tour-dimensions"
+                    className="results-headline"
+                    data-testid="results-headline"
+                  >
+                    <span className="results-headline-title">
+                      {resultsHeadlineTitle(analysis)}
+                    </span>
+                    <span className="results-headline-meta">
+                      {resultsHeadlineMeta(analysis)}
+                    </span>
+                  </h1>
+                  <p className="results-verdict" data-testid="results-verdict">
+                    {resultsVerdict(analysis)}
+                  </p>
+                  {resultsSeenLine(analysis) ? (
+                    <p className="results-seen" data-testid="results-seen">
+                      <span className="results-seen-label">Seen</span>
+                      {resultsSeenLine(analysis)}
+                    </p>
                   ) : null}
-                  <div className="results-action-col">
+                </section>
+
+                <section
+                  className="results-actions"
+                  aria-label="Primary exports"
+                  id="tour-exports"
+                >
+                  <div className="results-action-row">
+                    <div className="results-action-col">
+                      <button
+                        type="button"
+                        id="tour-designer-cta"
+                        onClick={onOpenWorkspaceDesigner}
+                        disabled={!canExportVrc}
+                        className="results-btn results-btn-solid"
+                      >
+                        Open this room in Designer
+                      </button>
+                      <p className="results-collab-hint">
+                        Downloads this room. Drag the file onto the 3D view.
+                      </p>
+                    </div>
+                    <div className="results-action-col">
+                      <button
+                        type="button"
+                        id="tour-collab-cta"
+                        onClick={onOpenCollabExperience}
+                        disabled={!canExportVrc}
+                        className="results-btn results-btn-ghost"
+                      >
+                        Open Collab Experience
+                      </button>
+                      <p className="results-collab-hint">
+                        The file downloads. In Collab Experience, choose New, then Open File.
+                      </p>
+                    </div>
+                  </div>
+
+                  {exportTip ? (
+                    <p className="results-tip" role="status" aria-live="polite">
+                      {exportTip}
+                    </p>
+                  ) : null}
+                </section>
+              </div>
+
+              <div className="results-scroll">
+                <section
+                  id="tour-recommendations"
+                  aria-label="Recommendations"
+                >
+                  <ul className="results-recs">
+                    {REC_ROWS.map(([title, key]) => {
+                      const line = splitRecommendation(
+                        analysis.recommendations[key],
+                      );
+                      const selected = pinnedKey === key || hoveredKey === key;
+                      return (
+                        <li
+                          key={title}
+                          className={
+                            selected
+                              ? "results-rec is-active"
+                              : "results-rec"
+                          }
+                          data-testid={`rec-${title}`}
+                          onMouseEnter={() => setHoveredKey(key)}
+                          onMouseLeave={() => setHoveredKey(null)}
+                        >
+                          <button
+                            type="button"
+                            className="results-rec-hit"
+                            aria-pressed={pinnedKey === key}
+                            onClick={() => togglePin(key)}
+                          >
+                            <span className="results-rec-label">{title}</span>
+                            {line.lead ? (
+                              <span className="results-rec-text">{line.lead}</span>
+                            ) : null}
+                            {selected && line.rest ? (
+                              <span className="results-rec-rest">{line.rest}</span>
+                            ) : null}
+                          </button>
+                          {line.href ? (
+                            <a
+                              href={line.href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="results-rec-link"
+                              data-testid={`rec-link-${title}`}
+                            >
+                              {CISCO_GUIDANCE_LABEL}
+                            </a>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+
+                <details className="results-more">
+                  <summary>More</summary>
+                  <div className="results-more-actions">
+                    {designerUrl ? (
+                      <a
+                        href={designerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="results-more-btn"
+                      >
+                        Open a Designer preset
+                      </a>
+                    ) : null}
                     <button
                       type="button"
-                      id="tour-collab-cta"
-                      onClick={onOpenCollabExperience}
+                      onClick={onDownloadWebexDesignerJson}
                       disabled={!canExportVrc}
-                      className="results-btn results-btn-ghost"
+                      className="results-more-btn"
                     >
-                      Open Collab Experience
+                      Download Designer JSON
                     </button>
-                    <p className="results-collab-hint">
-                      New → Open File, pick the download
-                    </p>
+                    <button
+                      type="button"
+                      onClick={onCopyAnalysisJson}
+                      disabled={loading || !pretty}
+                      className="results-more-btn"
+                    >
+                      {copiedJson ? "Copied JSON" : "Copy full analysis"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onDownloadJson}
+                      disabled={loading || !pretty}
+                      className="results-more-btn"
+                    >
+                      Download full analysis
+                    </button>
                   </div>
-                </div>
-
-                {exportTip ? (
-                  <p className="results-tip" role="status" aria-live="polite">
-                    {exportTip}
-                  </p>
-                ) : null}
-              </section>
-
-              <details className="results-more">
-                <summary>More</summary>
-                <div className="results-more-actions">
-                  <button
-                    type="button"
-                    onClick={onDownloadWebexDesignerJson}
-                    disabled={!canExportVrc}
-                    className="results-more-btn"
-                  >
-                    Download Designer JSON
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onCopyAnalysisJson}
-                    disabled={loading || !pretty}
-                    className="results-more-btn"
-                  >
-                    {copiedJson ? "Copied JSON" : "Copy full analysis"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onDownloadJson}
-                    disabled={loading || !pretty}
-                    className="results-more-btn"
-                  >
-                    Download full analysis
-                  </button>
-                </div>
-                {designerUrl ? (
-                  <p
-                    className="results-designer-url"
-                    data-testid="designer-url"
-                  >
-                    {designerUrl}
-                  </p>
-                ) : null}
-              </details>
+                  {designerUrl ? (
+                    <p
+                      className="results-designer-url"
+                      data-testid="designer-url"
+                    >
+                      {designerUrl}
+                    </p>
+                  ) : null}
+                </details>
+              </div>
             </div>
           </div>
         ) : null}

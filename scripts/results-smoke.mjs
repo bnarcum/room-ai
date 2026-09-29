@@ -128,8 +128,8 @@ async function main() {
     const ids = [
       "tour-room-read",
       "tour-dimensions",
-      "tour-recommendations",
       "tour-exports",
+      "tour-recommendations",
     ];
     return ids.map((id) => {
       const el = document.getElementById(id);
@@ -153,10 +153,10 @@ async function main() {
     }
     if (title === "Camera") {
       if (!rec.includes("Keep cameras at eye height.")) {
-        throw new Error("Camera rec should show the full first item");
+        throw new Error("Camera rec should show the lead sentence");
       }
-      if (!rec.includes("Check backlight.")) {
-        throw new Error("Camera rec should join every recommendation sentence");
+      if (rec.includes("Check backlight.")) {
+        throw new Error("Extra sentences should stay collapsed until the row is open");
       }
     }
     if (rec.includes("cisco.com/c/dam") || rec.includes("https://www.cisco.com/c/dam")) {
@@ -181,9 +181,17 @@ async function main() {
     throw new Error(`Missing Open Collab Experience action: ${collabLabel}`);
   }
 
+  const designerLabel = await page.locator("#tour-designer-cta").textContent();
+  if (!designerLabel?.includes("Open this room in Designer")) {
+    throw new Error(`Primary Designer action should open this room: ${designerLabel}`);
+  }
   const designerHref = await page.locator("#tour-designer-cta").getAttribute("href");
-  if (designerHref !== EXPECTED_DESIGNER) {
-    throw new Error(`Designer URL mismatch: ${designerHref}`);
+  if (designerHref) {
+    throw new Error("Primary Designer action must download this room, not open a preset");
+  }
+  const presetUrl = await page.locator("[data-testid='designer-url']").textContent();
+  if (presetUrl?.trim() !== EXPECTED_DESIGNER) {
+    throw new Error(`Designer preset URL mismatch: ${presetUrl}`);
   }
 
   const headline = await page.locator("[data-testid='results-headline']").textContent();
@@ -237,7 +245,7 @@ async function main() {
   await page.waitForSelector('[data-testid="results-photo"]', { timeout: 10_000 });
   await page.waitForFunction(() => {
     const proof = document.querySelector('[data-testid="results-size-proof"]');
-    return proof?.textContent?.includes("24 × 16 × 9 ft") ?? false;
+    return proof?.textContent?.includes("about 24 × 16 × 9 ft") ?? false;
   }, undefined, { timeout: 5_000 });
   if ((await page.locator('[data-testid="photo-spotlight"]').count()) !== 0) {
     throw new Error("Spotlight should be hidden until hover/click");
@@ -340,7 +348,12 @@ async function main() {
   }
 
   console.log("OK: home analyze + cinematic results, Designer URL matches seat count");
-  console.log(`  Designer URL: ${designerHref}`);
+  await page.locator('[data-testid="rec-Camera"]').click();
+  const opened = await page.locator('[data-testid="rec-Camera"]').textContent();
+  if (!opened?.includes("Check backlight.")) {
+    throw new Error("Opening the camera row should reveal the rest of the advice");
+  }
+  console.log(`  Designer preset: ${presetUrl?.trim()}`);
   console.log(`  Headline: ${headline?.trim()}`);
   await browser.close();
 }

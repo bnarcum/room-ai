@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { FocusBox, FocusRegionKey } from "@/lib/focusRegions";
 import { containedImageRect } from "@/lib/containedImageRect";
-import { round1 } from "@/lib/roomSizing";
 
 const CAPTIONS: Record<FocusRegionKey, string> = {
   camera: "Camera",
@@ -22,64 +21,13 @@ type OverlayRect = {
 
 const EMPTY_OVERLAY: OverlayRect = { left: 0, top: 0, width: 0, height: 0 };
 
-type RoomSizeProof = {
-  length: number;
-  width: number;
-  height: number;
-  unit: "feet" | "meters";
-};
-
 type ResultsPhotoHeroProps = {
   src: string;
   region: FocusBox | null;
   captionKey: FocusRegionKey | null;
   onClear: () => void;
-  size?: RoomSizeProof | null;
+  sizeCaption?: string | null;
 };
-
-function RoomSizeDiagram({ length, width, height, unit }: RoomSizeProof) {
-  const L = String(round1(length));
-  const W = String(round1(width));
-  const H = String(round1(height));
-  const suffix = unit === "meters" ? "m" : "ft";
-  const spoken = `${L} × ${W} × ${H} ${suffix}`;
-
-  return (
-    <div
-      className="results-size-proof"
-      data-testid="results-size-proof"
-      aria-label={spoken}
-    >
-      <span className="results-size-proof-sr">{spoken}</span>
-      <svg
-        className="results-size-iso"
-        viewBox="0 0 128 108"
-        aria-hidden="true"
-      >
-        <g
-          fill="rgb(7 24 45 / 0.58)"
-          stroke="currentColor"
-          strokeWidth="1.15"
-          strokeLinejoin="round"
-        >
-          <path d="M40 48 L64 32 L110 32 L86 48 Z" />
-          <path d="M40 48 L40 86 L86 86 L86 48 Z" />
-          <path d="M86 48 L110 32 L110 70 L86 86 Z" />
-        </g>
-        <text className="results-size-iso-num" x="26" y="70" textAnchor="middle">
-          {H}
-        </text>
-        <text className="results-size-iso-num" x="63" y="102" textAnchor="middle">
-          {W}
-        </text>
-        <text className="results-size-iso-num" x="112" y="80" textAnchor="middle">
-          {L}
-        </text>
-      </svg>
-      <span className="results-size-unit">{suffix}</span>
-    </div>
-  );
-}
 
 function sameRect(a: OverlayRect, b: OverlayRect) {
   return (
@@ -95,11 +43,12 @@ export function ResultsPhotoHero({
   region,
   captionKey,
   onClear,
-  size,
+  sizeCaption,
 }: ResultsPhotoHeroProps) {
   const boxRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [overlay, setOverlay] = useState<OverlayRect>(EMPTY_OVERLAY);
+  const [aspect, setAspect] = useState<number | null>(null);
 
   const syncOverlay = useCallback(() => {
     const box = boxRef.current;
@@ -112,6 +61,10 @@ export function ResultsPhotoHero({
       img.naturalHeight,
     );
     setOverlay((prev) => (sameRect(prev, next) ? prev : next));
+    if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+      const ratio = img.naturalWidth / img.naturalHeight;
+      setAspect((prev) => (prev === ratio ? prev : ratio));
+    }
   }, []);
 
   useLayoutEffect(() => {
@@ -136,6 +89,14 @@ export function ResultsPhotoHero({
       className="results-photo"
       data-testid="results-photo-frame"
       onClick={onClear}
+      style={
+        aspect
+          ? ({
+              aspectRatio: String(aspect),
+              "--photo-aspect": String(aspect),
+            } as CSSProperties)
+          : undefined
+      }
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -177,7 +138,11 @@ export function ResultsPhotoHero({
           </div>
         ) : null}
       </div>
-      {size ? <RoomSizeDiagram {...size} /> : null}
+      {sizeCaption ? (
+        <p className="results-size-proof" data-testid="results-size-proof">
+          {sizeCaption}
+        </p>
+      ) : null}
     </div>
   );
 }
