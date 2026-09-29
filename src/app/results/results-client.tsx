@@ -405,14 +405,13 @@ export default function ResultsClient() {
                       const line = splitRecommendation(
                         analysis.recommendations[key],
                       );
-                      const selected = pinnedKey === key || hoveredKey === key;
+                      const marked = pinnedKey === key || hoveredKey === key;
+                      const open = pinnedKey === key;
                       return (
                         <li
                           key={title}
                           className={
-                            selected
-                              ? "results-rec is-active"
-                              : "results-rec"
+                            marked ? "results-rec is-active" : "results-rec"
                           }
                           data-testid={`rec-${title}`}
                           onMouseEnter={() => setHoveredKey(key)}
@@ -428,7 +427,7 @@ export default function ResultsClient() {
                             {line.lead ? (
                               <span className="results-rec-text">{line.lead}</span>
                             ) : null}
-                            {selected && line.rest ? (
+                            {open && line.rest ? (
                               <span className="results-rec-rest">{line.rest}</span>
                             ) : null}
                           </button>

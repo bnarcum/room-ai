@@ -553,12 +553,6 @@ body {
   outline: 1px solid var(--seller-cyan);
   outline-offset: 0;
   pointer-events: none;
-  transition:
-    left 280ms ease,
-    top 280ms ease,
-    width 280ms ease,
-    height 280ms ease,
-    opacity 240ms ease;
 }
 
 .results-spotlight-caption {
@@ -633,26 +627,6 @@ body {
   margin-left: -10px;
   border-bottom: 1px solid var(--seller-line);
   border-left: 2px solid transparent;
-  transition:
-    background-color 240ms ease,
-    border-color 240ms ease;
-  animation: seller-fade-up 420ms ease both;
-}
-
-.results-rec:nth-child(1) {
-  animation-delay: 40ms;
-}
-.results-rec:nth-child(2) {
-  animation-delay: 90ms;
-}
-.results-rec:nth-child(3) {
-  animation-delay: 140ms;
-}
-.results-rec:nth-child(4) {
-  animation-delay: 190ms;
-}
-.results-rec:nth-child(5) {
-  animation-delay: 240ms;
 }
 
 .results-rec.is-active {
