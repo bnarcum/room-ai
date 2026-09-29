@@ -219,9 +219,17 @@ function screenRoles(count: number): ScreenRole[] {
   return ["firstScreen", "secondScreen", "thirdScreen"];
 }
 
-/** 16:9 panel width in meters from a diagonal in inches. */
-function screenWidthMeters(diagonalInches: number): number {
-  return diagonalInches * 0.0254 * (16 / Math.hypot(16, 9));
+/** Designer draws a screen from scale, not from `size`. Scale 1 is a 55" 16:9 panel. */
+const DESIGNER_BASE_SCREEN_IN = 55;
+/** Bottom of the glass when the video bar sits under the displays. */
+const SCREEN_BOTTOM_M = 1.2;
+const BAR_BELOW_SCREEN_M = 0.11;
+
+/** Workspace Designer 16:9 box: width = 0.025 * inches * aspect / hypot(aspect, 1). */
+function designerScreenBox(diagonalInches: number): { width: number; height: number } {
+  const aspect = 16 / 9;
+  const height = (0.025 * diagonalInches) / Math.sqrt(1 + aspect * aspect);
+  return { width: height * aspect, height };
 }
 
 /**
@@ -247,11 +255,11 @@ function frontWallMount(
   };
 }
 
+/** Centers one panel-width apart so the bezels meet, matching Designer's dual layout. */
 function screenCenterOffsets(count: number, span: number, panelWidth: number): number[] {
   if (count <= 1) return [0];
-  const gap = 0.08;
-  const maxStep = Math.max(0.45, (span - 0.5) / (count - 1));
-  const step = Math.min(panelWidth + gap, maxStep);
+  const maxStep = Math.max(0.45, (span - 0.4) / (count - 1));
+  const step = Math.min(panelWidth, maxStep);
   const start = -((count - 1) * step) / 2;
   return Array.from({ length: count }, (_, i) => round3(start + i * step));
 }
@@ -398,15 +406,15 @@ export function buildWebexDesignerRoomJson(
   const halfShort = tableWid / 2;
 
   const screenInch = resolveScreenInches(analysis, layoutKind, wm, lm);
+  const screenBox = designerScreenBox(screenInch);
+  const screenScale = round3(screenInch / DESIGNER_BASE_SCREEN_IN);
+  const screenCenterY = round3(SCREEN_BOTTOM_M + screenBox.height / 2);
+  const barY = round3(SCREEN_BOTTOM_M - BAR_BELOW_SCREEN_M);
   const screenCount = resolveScreenCount(analysis, layoutKind);
   const roles = screenRoles(screenCount);
   const mount = frontWallMount(wm, lm, rotateTableY);
   const span = mount.along === "x" ? wm : lm;
-  const offsets = screenCenterOffsets(
-    screenCount,
-    span,
-    screenWidthMeters(screenInch),
-  );
+  const offsets = screenCenterOffsets(screenCount, span, screenBox.width);
 
   const customObjects: Record<string, unknown>[] = [];
 
@@ -425,11 +433,7 @@ export function buildWebexDesignerRoomJson(
     objectType: "videoDevice",
     model: videoDeviceModel(layoutKind),
     color: "dark",
-    position: [
-      mount.x,
-      layoutKind === "huddle" ? 1.55 : 1.75,
-      mount.z,
-    ],
+    position: [mount.x, barY, mount.z],
     rotation: [0, mount.yaw, 0],
   });
 
@@ -440,9 +444,9 @@ export function buildWebexDesignerRoomJson(
     customObjects.push({
       id: screenCount === 1 ? "rai-screen" : `rai-screen-${i + 1}`,
       objectType: "screen",
-      position: [x, 1.22, z],
+      position: [x, screenCenterY, z],
       rotation: [0, mount.yaw, 0],
-      scale: [1, 1, 1],
+      scale: [screenScale, screenScale, screenScale],
       size: screenInch,
       role,
     });

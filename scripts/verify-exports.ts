@@ -143,11 +143,30 @@ if (dualRoles.join(",") !== "firstScreen,secondScreen") {
 }
 const dualZs = dualScreens.map((o) => (o.position as number[])[2]);
 const dualXs = dualScreens.map((o) => (o.position as number[])[0]);
+const dualYs = dualScreens.map((o) => (o.position as number[])[1]);
 if (dualZs.some((z) => Math.abs(z - frontZ) > 0.05)) {
   fail(`Dual screens should share the front wall, got z ${dualZs.join(", ")}`);
 }
-if (Math.abs((dualXs[0] ?? 0) - (dualXs[1] ?? 0)) < 0.4) {
-  fail(`Dual screens should sit side by side, got x ${dualXs.join(", ")}`);
+const aspect = 16 / 9;
+const panelWidth =
+  ((0.025 * 75) / Math.sqrt(1 + aspect * aspect)) * aspect;
+const separation = Math.abs((dualXs[0] ?? 0) - (dualXs[1] ?? 0));
+if (Math.abs(separation - panelWidth) > 0.02) {
+  fail(
+    `Dual screens should meet at the bezel (${panelWidth.toFixed(3)} m apart), got ${separation.toFixed(3)} m`,
+  );
+}
+const scale = dualScreens[0]?.scale as number[];
+if (!scale || Math.abs(scale[0] - 75 / 55) > 0.01) {
+  fail(`Screen scale should be 75/55 so Designer draws a 75" panel, got ${scale?.join(",")}`);
+}
+const dualBar = must(
+  dualDesigner.customObjects.find((o) => o.objectType === "videoDevice"),
+  "Dual room missing video bar",
+);
+const dualBarY = (dualBar.position as number[])[1];
+if (dualBarY >= (dualYs[0] ?? 0)) {
+  fail(`Video bar should sit under the screens, bar y ${dualBarY}, screen y ${dualYs[0]}`);
 }
 
 const huddle = analysisFrom({
