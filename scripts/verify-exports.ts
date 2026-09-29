@@ -572,6 +572,20 @@ if (officeDesigner.customObjects.some((o) => o.objectType === "screen")) {
 if (officeDesigner.customObjects.some((o) => o.model === "Room Bar" || o.model === "Room Bar Pro")) {
   fail("Home office Designer JSON must not add a Room Bar");
 }
+const officeTable = officeDesigner.customObjects.find((o) => o.objectType === "table");
+const officeTableZ = (officeTable?.position as number[])[2];
+const officeDeskZ = (officeDesk?.position as number[])[2];
+const officeFrontWall = -officeDesigner.roomShape.length / 2;
+if (Math.abs(officeTableZ - (officeFrontWall + Number(officeTable?.length) / 2)) > 0.02) {
+  fail(`Home office table should sit against the front wall, z=${officeTableZ}`);
+}
+if (Math.abs(officeDeskZ - (officeFrontWall + 0.12)) > 0.02) {
+  fail(`Home office Desk Pro should be 0.12 m off the front wall, z=${officeDeskZ}`);
+}
+const officeVrcTable = officeBuckets.tables[0];
+if ((officeVrcTable?.y ?? 99) > 0.25) {
+  fail(`Home office VRC table should start at the front wall, y=${officeVrcTable?.y}`);
+}
 if (officeGeo.tableWidth < 3 || officeGeo.tableWidth > 3.5) {
   fail(`Home office table width should be ~3–3.5 ft, got ${officeGeo.tableWidth}`);
 }

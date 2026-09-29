@@ -290,6 +290,39 @@ function tableDimensionsForLayout(
 }
 
 /**
+ * Home-office seats face the Desk Pro from the open end of the table.
+ * The other end is against the wall, so a chair there would sit in the wall.
+ */
+function openEndChairPositions(params: {
+  seatCount: number;
+  halfShort: number;
+  halfLong: number;
+  tableCenterZ: number;
+  rotateTableY: number;
+  pad: number;
+}): { cx: number; cz: number; yaw: number }[] {
+  const { seatCount, halfShort, halfLong, tableCenterZ, rotateTableY, pad } = params;
+  const n = Math.max(1, Math.min(2, seatCount));
+  const alongZ = Math.abs(rotateTableY) < 0.01;
+  const across = n === 1 ? [0] : [-halfShort * 0.45, halfShort * 0.45];
+  const out = halfLong + pad;
+  return across.slice(0, n).map((offset) => {
+    if (alongZ) {
+      return {
+        cx: round3(offset),
+        cz: round3(tableCenterZ + out),
+        yaw: round3(Math.PI),
+      };
+    }
+    return {
+      cx: round3(out),
+      cz: round3(tableCenterZ + offset),
+      yaw: round3(-Math.PI / 2),
+    };
+  });
+}
+
+/**
  * Boardroom-style seating: chairs only on the two **long** sides of the table (not on the
  * short / head ends). That keeps seats away from narrow walls, avoids corner clipping, and
  * pulls every chair up to the table edge instead of leaving one “stray” seat on an end wall.
@@ -401,6 +434,12 @@ export function buildWebexDesignerRoomJson(
   tableWid = clamped.tableWid;
   tableLen = clamped.tableLen;
 
+  const personal = isPersonalWorkspace(analysis.roomSummary.likelyUse);
+  if (personal) {
+    // Huddle preset uses distanceToWall 0, so the table's near edge is the front wall.
+    tableCenterZ = round3(-lm / 2 + tableLen / 2);
+  }
+
   const halfLong = tableLen / 2;
   const halfShort = tableWid / 2;
 
@@ -416,7 +455,6 @@ export function buildWebexDesignerRoomJson(
   const offsets = screenCenterOffsets(screenCount, span, screenBox.width);
 
   const customObjects: Record<string, unknown>[] = [];
-  const personal = isPersonalWorkspace(analysis.roomSummary.likelyUse);
 
   customObjects.push({
     id: "rai-table",
@@ -430,9 +468,8 @@ export function buildWebexDesignerRoomJson(
   });
 
   if (personal) {
-    // Huddle preset for a home office is a Desk Pro on the table. Desk-family
-    // devices are the screen, so a wall display and Room Bar would double it.
-    const inset = 0.15;
+    // Designer places a desk-mounted Desk Pro 0.12 m off the front wall.
+    // Desk-family devices are the screen, so do not also add a wall display.
     const alongZ = Math.abs(rotateTableY) < 0.01;
     customObjects.push({
       id: "rai-desk-pro",
@@ -443,8 +480,8 @@ export function buildWebexDesignerRoomJson(
       mount: "desk",
       role: "singleScreen",
       position: alongZ
-        ? [0, TABLE_TOP_Y, round3(tableCenterZ - tableLen / 2 + inset)]
-        : [round3(-tableLen / 2 + inset), TABLE_TOP_Y, tableCenterZ],
+        ? [0, TABLE_TOP_Y, round3(-lm / 2 + 0.12)]
+        : [round3(-wm / 2 + 0.12), TABLE_TOP_Y, tableCenterZ],
       rotation: [0, alongZ ? 0 : round3(Math.PI / 2), 0],
     });
   } else {
@@ -513,14 +550,23 @@ export function buildWebexDesignerRoomJson(
     });
   }
 
-  const chairPos = longSideChairPositions({
-    seatCount,
-    halfShort,
-    halfLong,
-    tableCenterZ,
-    rotateTableY,
-    pad: CHAIR_RING_PAD_M,
-  });
+  const chairPos = personal
+    ? openEndChairPositions({
+        seatCount,
+        halfShort,
+        halfLong,
+        tableCenterZ,
+        rotateTableY,
+        pad: CHAIR_RING_PAD_M,
+      })
+    : longSideChairPositions({
+        seatCount,
+        halfShort,
+        halfLong,
+        tableCenterZ,
+        rotateTableY,
+        pad: CHAIR_RING_PAD_M,
+      });
 
   chairPos.forEach((p, i) => {
     customObjects.push({

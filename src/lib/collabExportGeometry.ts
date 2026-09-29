@@ -65,10 +65,10 @@ export function deriveCollabExportGeometry(
   const roomWidthFt = Math.max(toFeet(d.width, unit), 6);
   const roomLengthFt = Math.max(toFeet(d.length, unit), 6);
 
-  const frntWallToTvFt = layoutKind === "huddle" ? 0.4 : 0.5;
+  const frntWallToTvFt = personal ? 0.15 : layoutKind === "huddle" ? 0.4 : 0.5;
   const rearAisleFt = personal ? 2.4 : layoutKind === "huddle" ? 2.2 : 3;
   const minDisplayGapFt = personal
-    ? 2.6
+    ? 0
     : layoutKind === "huddle"
       ? 2.4
       : layoutKind === "small"
@@ -105,10 +105,12 @@ export function deriveCollabExportGeometry(
   tableLengthFt = Math.max(3, Math.min(tableLengthFt, maxTableLengthFt));
 
   const leftoverFt = roomLengthFt - tableLengthFt - frntWallToTvFt - rearAisleFt;
-  const distDisplayToTableFt = Math.max(
-    minDisplayGapFt,
-    Math.min(layoutKind === "boardroom" ? 8 : 6, leftoverFt),
-  );
+  const distDisplayToTableFt = personal
+    ? 0
+    : Math.max(
+        minDisplayGapFt,
+        Math.min(layoutKind === "boardroom" ? 8 : 6, leftoverFt),
+      );
 
   return {
     tableWidth: round2(fromFeet(tableWidthFt, unit)),
