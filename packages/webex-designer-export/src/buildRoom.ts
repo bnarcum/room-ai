@@ -12,14 +12,14 @@ import type {
 
 const FT_TO_M = 0.3048;
 /** Typical conference table surface height when the mesh sits on the floor (m). */
-const TABLE_HEIGHT_M = 0.71;
+const TABLE_HEIGHT_M = 0.7;
 /**
  * Workspace Designer `table` objects use a **floor pivot** (bottom-center), same as chairs at y=0.
  * Do not use half-height here — that was causing floating tables when the asset origin is the base.
  */
 const TABLE_POSITION_Y = 0;
-/** Table Mic Pro sits on the tabletop — slightly above nominal surface height for the puck. */
-const TABLE_MIC_Y = TABLE_HEIGHT_M + 0.03;
+/** Tabletop Y. The mic and table navigator use this same height so they rest on the glass. */
+const TABLE_TOP_Y = TABLE_HEIGHT_M;
 /** Distance from table apron to chair center (Designer avatars sit better when not overshot). */
 const CHAIR_RING_PAD_M = 0.38;
 /** Chair centers must stay inside the floor polygon by at least this margin (m). */
@@ -425,6 +425,7 @@ export function buildWebexDesignerRoomJson(
     length: tableLen,
     position: [0, TABLE_POSITION_Y, tableCenterZ],
     rotation: [0, rotateTableY, 0],
+    height: TABLE_TOP_Y,
   });
 
   customObjects.push({
@@ -456,7 +457,38 @@ export function buildWebexDesignerRoomJson(
       id: "rai-table-mic",
       objectType: "microphone",
       model: "Table Mic Pro",
-      position: [0, round3(TABLE_MIC_Y), tableCenterZ],
+      color: "light",
+      position: [0, TABLE_TOP_Y, tableCenterZ],
+    });
+
+    const yaw = rotateTableY;
+    const c = Math.cos(yaw);
+    const s = Math.sin(yaw);
+    const localX = tableWid / 4;
+    const localZ = -tableLen / 7;
+    customObjects.push({
+      id: "rai-navigator",
+      objectType: "navigator",
+      role: "navigator",
+      color: "light",
+      position: [
+        round3(localX * c + localZ * s),
+        round3(TABLE_TOP_Y + 0.01),
+        round3(tableCenterZ + (-localX * s + localZ * c)),
+      ],
+      rotation: [0, round3(0.8 + yaw), 0],
+    });
+
+    const outsideRight = mount.along === "x";
+    customObjects.push({
+      id: "rai-scheduler",
+      objectType: "scheduler",
+      role: "scheduler",
+      color: "light",
+      position: outsideRight
+        ? [round3(wm / 2 + 0.1), 1.1, round3(Math.max(0.4, lm / 2 - 1.2))]
+        : [round3(Math.max(0.4, wm / 2 - 1.2)), 1.1, round3(lm / 2 + 0.1)],
+      rotation: [0, outsideRight ? round3(Math.PI / 2) : 0, 0],
     });
   }
 

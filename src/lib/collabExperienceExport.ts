@@ -353,24 +353,15 @@ function buildQuickSetupItems(params: {
     name: displayId === "displaySngl_2" ? "Single Display" : "Display",
   };
 
-  // Room Bar Pro is 960×90 mm. Sit it just in front of the display so the
-  // floor-plan icon is not covered, and raise it to the top of the glass.
-  const barWidthM = 0.96;
-  const barDepthM = 0.09;
+  // VRC puts the bar on the display by setting its elevation to the top of the glass.
   const toUnit = unit === "feet" ? FT_PER_M : 1;
-  const displayHeightM =
-    (0.025 * tvDiag) / Math.sqrt(1 + (16 / 9) * (16 / 9));
-  const barY = round2(
-    Math.min(roomLength - 0.2, videoY + (barDepthM + 0.12) * toUnit),
-  );
-  const barZ = round2(displayZ + (displayHeightM / 2 + 0.06) * toUnit);
+  const displayHeightM = ((695 * 0.985) / 1000) * (tvDiag / 55);
+  const barZ = round2(displayZ + displayHeightM * toUnit);
 
   const video: VrcCanvasItem = {
     x: videoX,
-    y: barY,
+    y: videoY,
     rotation: 0,
-    width: round2(barWidthM * toUnit),
-    height: round2(barDepthM * toUnit),
     data_zPosition: barZ,
     data_deviceid: "roomBarPro",
     data_layerId: LAYER0,
@@ -390,7 +381,44 @@ function buildQuickSetupItems(params: {
     sittingSideOnly,
   });
 
-  return [table, display, video, ...chairs];
+  const items: VrcCanvasItem[] = [table, display, video, ...chairs];
+  if (!sittingSideOnly) {
+    const tableCenterX = round2(table.x + (table.width ?? tableBox.width) / 2);
+    const tableCenterY = round2(table.y + (table.height ?? tableBox.height) / 2);
+    const tableTop = round2(0.71 * toUnit);
+    items.push({
+      x: tableCenterX,
+      y: tableCenterY,
+      rotation: 0,
+      data_zPosition: tableTop,
+      data_deviceid: "tableMicPro",
+      data_layerId: LAYER0,
+      id: crypto.randomUUID(),
+      name: "Table Microphone Pro",
+    });
+    items.push({
+      x: round2(tableCenterX + (table.width ?? tableBox.width) / 4),
+      y: round2(table.y + (table.height ?? tableBox.height) / 7),
+      rotation: 45,
+      data_zPosition: tableTop,
+      data_deviceid: "navigatorTable",
+      data_layerId: LAYER0,
+      id: crypto.randomUUID(),
+      name: "Table Navigator",
+    });
+    items.push({
+      x: round2(roomWidth + 0.15 * toUnit),
+      y: round2(Math.max(0.4, roomLength - 1.5 * toUnit)),
+      rotation: 90,
+      data_zPosition: round2(1.1 * toUnit),
+      data_deviceid: "navigatorWall",
+      data_layerId: LAYER0,
+      id: crypto.randomUUID(),
+      name: "Wall Navigator",
+    });
+  }
+
+  return items;
 }
 
 /**

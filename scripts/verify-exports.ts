@@ -106,6 +106,16 @@ if (video.model !== "Room Bar Pro") {
 if (!mic || mic.model !== "Table Mic Pro") {
   fail("Medium room should include Table Mic Pro.");
 }
+const micY = (mic.position as number[])[1];
+if (Math.abs(micY - 0.7) > 0.001) {
+  fail(`Table mic should rest on the 0.7 m tabletop, got y ${micY}`);
+}
+if (!designer.customObjects.some((o) => o.objectType === "navigator")) {
+  fail("Medium room should include a table navigator.");
+}
+if (!designer.customObjects.some((o) => o.objectType === "scheduler")) {
+  fail("Medium room should include a navigator outside the room.");
+}
 if (screen.size !== 75) {
   fail(`Medium room screen should be 75 from estimate, got ${String(screen.size)}`);
 }
@@ -368,9 +378,13 @@ const compactBar = compactBuckets.videoDevices[0];
 if (
   compactDisplay &&
   compactBar &&
-  (compactBar.y ?? 0) <= (compactDisplay.y ?? 0)
+  Math.abs((compactBar.y ?? 0) - (compactDisplay.y ?? 0)) > 0.02
 ) {
-  fail("Room bar should sit in front of the display on the floor plan");
+  fail("Room bar should sit on the display wall, not in front of it");
+}
+const compactIds = new Set(vrcItemList(compactVrc).map((item) => item.data_deviceid));
+for (const id of ["tableMicPro", "navigatorTable", "navigatorWall"]) {
+  if (!compactIds.has(id)) fail(`Conference VRC missing ${id}`);
 }
 if (compactBuckets.videoDevices.some((d) => d.data_deviceid === "roomBar")) {
   fail("Do not emit unverified roomBar data_deviceid; use roomBarPro");
@@ -382,6 +396,9 @@ const knownIds = new Set([
   "displaySngl_2",
   "displayDbl_2",
   "displayTrpl_2",
+  "tableMicPro",
+  "navigatorTable",
+  "navigatorWall",
   "chair",
   "wallChairs",
   "wallChairsSwivel",
