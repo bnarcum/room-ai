@@ -107,11 +107,12 @@ export const DEMO_TOUR_ANALYSIS: DemoAnalysisEnvelope = {
       "Verify network and power at the table center",
     ],
     focusRegions: {
-      display: { x: 0.3, y: 0.04, w: 0.4, h: 0.36 },
-      camera: { x: 0.38, y: 0.06, w: 0.24, h: 0.2 },
-      acoustics: { x: 0.22, y: 0.4, w: 0.56, h: 0.42 },
-      lighting: { x: 0.1, y: 0, w: 0.8, h: 0.26 },
-      network: { x: 0.34, y: 0.5, w: 0.32, h: 0.28 },
+      // Measured on public/demo/conference-room.png (1024×656), not guessed.
+      display: { x: 0.678, y: 0.178, w: 0.175, h: 0.23 },
+      camera: { x: 0.664, y: 0.175, w: 0.2, h: 0.08 },
+      acoustics: { x: 0.39, y: 0.54, w: 0.08, h: 0.16 },
+      lighting: { x: 0.255, y: 0.075, w: 0.34, h: 0.26 },
+      network: { x: 0.318, y: 0.47, w: 0.08, h: 0.1 },
     },
   },
 };
