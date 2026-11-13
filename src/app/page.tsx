@@ -8,10 +8,25 @@ import {
   DEMO_TOUR_ROOM_PHOTO,
   useTourDemo,
 } from "@/components/TourDemoContext";
+import { seedDemoAnalysisForTour } from "@/lib/demoAnalysisFixture";
+import {
+  EXAMPLE_ANGLE_LICENSE_URL,
+  EXAMPLE_ANGLE_PHOTOS,
+  EXAMPLE_ANGLE_SOURCE_URL,
+  SAMPLE_CONFERENCE_PHOTO,
+} from "@/lib/exampleRooms";
+import { addRoomPhotos, isRoomImage, replacePrimary } from "@/lib/roomPhotoSet";
 import { runClientRoomAnalysis } from "@/lib/runClientAnalysis";
 
-function isDroppedImage(file: File) {
-  return file.type.startsWith("image/") || file.type === "";
+async function fileFromPublicUrl(url: string): Promise<File> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error("Could not load the sample photo.");
+  }
+  const blob = await response.blob();
+  const name = decodeURIComponent(url.split("/").pop() || "room.jpg");
+  const type = blob.type || (name.endsWith(".png") ? "image/png" : "image/jpeg");
+  return new File([blob], name, { type });
 }
 
 const ANALYZE_STAGES = [
@@ -50,6 +65,7 @@ export default function Home() {
     "idle" | "uploading" | "error" | "done"
   >("idle");
   const [error, setError] = useState<string | null>(null);
+  const [limitNote, setLimitNote] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
   const previewUrl = useMemo(() => {
@@ -65,7 +81,8 @@ export default function Home() {
   const displayPreviewUrl =
     previewUrl ?? (tourActive ? DEMO_TOUR_ROOM_PHOTO : null);
   const isAnalyzing = status === "uploading" || tourAnalyzing;
-  const canAddAngle = Boolean(file) && extraFiles.length < 2;
+  const canAddAngle = extraFiles.length < 2;
+  const canUseCamera = !file || extraFiles.length < 2;
 
   useEffect(() => {
     return () => {
@@ -107,13 +124,18 @@ export default function Home() {
     router.push("/results");
   }
 
+  function applyAdded(incoming: File[], replaceSet = false) {
+    const base = replaceSet ? { primary: null, extras: [] } : { primary: file, extras: extraFiles };
+    const { next, ignored } = addRoomPhotos(base, incoming);
+    setFile(next.primary);
+    setExtraFiles(next.extras);
+    setLimitNote(ignored > 0 ? "Only three photos are used." : null);
+  }
+
   function onDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setDragOver(false);
-    const dropped = event.dataTransfer.files?.[0];
-    if (dropped && isDroppedImage(dropped)) {
-      setFile(dropped);
-    }
+    applyAdded(Array.from(event.dataTransfer.files ?? []));
   }
 
   function onDropKeyDown(event: KeyboardEvent<HTMLLabelElement>) {
@@ -123,26 +145,62 @@ export default function Home() {
     }
   }
 
-  function addExtraFiles(list: FileList | null) {
-    const picked = Array.from(list ?? []).filter(isDroppedImage);
+  function onPrimaryPicked(list: FileList | null) {
+    const picked = Array.from(list ?? []);
     if (picked.length === 0) return;
-    setExtraFiles((prev) => [...prev, ...picked].slice(0, 2));
+    if (file && picked.length === 1 && isRoomImage(picked[0])) {
+      const next = replacePrimary({ primary: file, extras: extraFiles }, picked[0]);
+      setFile(next.primary);
+      setExtraFiles(next.extras);
+      setLimitNote(null);
+      return;
+    }
+    applyAdded(picked, Boolean(file) && picked.length > 1);
   }
 
   function removeExtra(index: number) {
     setExtraFiles((prev) => prev.filter((_, i) => i !== index));
+    setLimitNote(null);
   }
 
   function promoteExtra(index: number) {
-    if (!file) return;
-    const nextPrimary = extraFiles[index];
-    if (!nextPrimary) return;
-    setFile(nextPrimary);
-    setExtraFiles((prev) => {
-      const copy = [...prev];
-      copy[index] = file;
-      return copy;
-    });
+    const chosen = extraFiles[index];
+    if (!file || !chosen) return;
+    const next = replacePrimary({ primary: file, extras: extraFiles }, chosen);
+    setFile(next.primary);
+    setExtraFiles(next.extras);
+  }
+
+  async function viewSampleResult() {
+    setError(null);
+    const saved = await seedDemoAnalysisForTour();
+    if (!saved) {
+      setError("Could not open the sample result in this browser.");
+      return;
+    }
+    router.push("/results");
+  }
+
+  async function useSampleConference() {
+    setError(null);
+    try {
+      const sample = await fileFromPublicUrl(SAMPLE_CONFERENCE_PHOTO);
+      setFile(sample);
+      setExtraFiles([]);
+      setLimitNote(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not load the sample photo.");
+    }
+  }
+
+  async function loadExampleAngles() {
+    setError(null);
+    try {
+      const samples = await Promise.all(EXAMPLE_ANGLE_PHOTOS.map((url) => fileFromPublicUrl(url)));
+      applyAdded(samples, true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not load the example angles.");
+    }
   }
 
   return (
@@ -157,7 +215,7 @@ export default function Home() {
         <div className="home-headline" id="tour-hero">
           <h1 className="results-headline-title">Analyze a room</h1>
           <p className="results-headline-meta">
-            A first look at the space — from a single photograph.
+            One photo is enough. A second angle is optional.
           </p>
         </div>
 
@@ -183,9 +241,11 @@ export default function Home() {
                 id="room-photo"
                 type="file"
                 accept="image/*"
+                multiple
                 disabled={isAnalyzing}
                 onChange={(event) => {
-                  setFile(event.target.files?.[0] ?? null);
+                  onPrimaryPicked(event.target.files);
+                  event.target.value = "";
                 }}
                 className="home-file-input"
               />
@@ -206,7 +266,7 @@ export default function Home() {
                   <span className="home-drop-copy">
                     <RoomWireframe />
                     <span className="home-drop-title">Drop a room photo</span>
-                    <span className="home-drop-hint">or click to choose</span>
+                    <span className="home-drop-hint">or click to choose more than one</span>
                   </span>
                 )}
               </label>
@@ -224,7 +284,8 @@ export default function Home() {
               <p className="home-filename">{file.name}</p>
             ) : tourActive ? (
               <p className="home-filename">conference-room.png</p>
-            ) : (
+            ) : null}
+            {canUseCamera ? (
               <>
                 <input
                   id="room-photo-camera"
@@ -232,24 +293,25 @@ export default function Home() {
                   accept="image/*"
                   capture="environment"
                   onChange={(event) => {
-                    setFile(event.target.files?.[0] ?? null);
+                    const picked = event.target.files?.[0];
+                    event.target.value = "";
+                    if (picked) applyAdded([picked]);
                   }}
                   className="home-file-input"
                 />
                 <label className="home-camera" htmlFor="room-photo-camera">
-                  Use camera
+                  {file ? "Add a camera angle" : "Use camera"}
                 </label>
               </>
-            )}
-            {file ? (
-              <div className="home-angles" data-testid="home-extra-angles">
-                {extraFiles.map((extra, index) => (
-                  <div key={`${extra.name}-${index}`} className="home-angle">
+            ) : null}
+            <div className="home-angles" data-testid="home-extra-angles">
+              {extraFiles.map((extra, index) => (
+                <div key={`${extra.name}-${extra.lastModified}-${index}`} className="home-angle">
+                  <div className="home-angle-frame">
                     <button
                       type="button"
                       className="home-angle-thumb"
                       onClick={() => promoteExtra(index)}
-                      title="Use as primary photo"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={extraPreviewUrls[index]} alt={`Extra angle ${index + 1}`} />
@@ -263,28 +325,54 @@ export default function Home() {
                       ×
                     </button>
                   </div>
-                ))}
-                {canAddAngle ? (
-                  <label className="home-add-angle" htmlFor="room-photo-extra">
-                    <input
-                      id="room-photo-extra"
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={(event) => {
-                        addExtraFiles(event.target.files);
-                        event.target.value = "";
-                      }}
-                      className="home-file-input"
-                    />
-                    Add another angle (optional)
-                  </label>
-                ) : null}
-                <p className="home-angle-hint">
-                  Display wall, then the opposite corner.
-                </p>
-              </div>
-            ) : null}
+                  <button
+                    type="button"
+                    className="home-angle-main"
+                    onClick={() => promoteExtra(index)}
+                  >
+                    Use as main
+                  </button>
+                </div>
+              ))}
+              {canAddAngle ? (
+                <label className="home-add-angle" htmlFor="room-photo-extra">
+                  <input
+                    id="room-photo-extra"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(event) => {
+                      applyAdded(Array.from(event.target.files ?? []));
+                      event.target.value = "";
+                    }}
+                    className="home-file-input"
+                  />
+                  Add another angle (optional)
+                </label>
+              ) : null}
+              <p className="home-angle-hint">
+                Main photo: two walls and where the ceiling meets the floor.
+                Optional: the display wall, then the opposite corner.
+              </p>
+              {limitNote ? <p className="home-angle-hint">{limitNote}</p> : null}
+            </div>
+            <div className="home-samples">
+              <button type="button" className="home-sample-btn" onClick={viewSampleResult} disabled={isAnalyzing}>
+                View sample result
+              </button>
+              <button type="button" className="home-sample-btn" onClick={useSampleConference} disabled={isAnalyzing}>
+                Use sample conference photo
+              </button>
+              <button type="button" className="home-sample-btn" onClick={loadExampleAngles} disabled={isAnalyzing}>
+                Load example angles
+              </button>
+              <p className="home-credit">
+                The conference image is a sample render. The office photos are three angles of one room.{" "}
+                <a href={EXAMPLE_ANGLE_SOURCE_URL}>Famartin</a>
+                {", "}
+                <a href={EXAMPLE_ANGLE_LICENSE_URL}>CC BY-SA 4.0</a>.
+              </p>
+            </div>
           </div>
 
           <div className="home-controls">
@@ -351,7 +439,7 @@ export default function Home() {
             ) : null}
 
             <p className="home-privacy" id="tour-privacy">
-              Photo is sent only for this analysis.
+              Photos are sent only for this analysis.
             </p>
           </div>
         </div>

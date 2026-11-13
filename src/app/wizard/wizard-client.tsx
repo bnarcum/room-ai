@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { SiteBrandLink } from "@/components/SiteBrand";
+import { addRoomPhotos, replacePrimary } from "@/lib/roomPhotoSet";
 import { runClientRoomAnalysis } from "@/lib/runClientAnalysis";
 
 const STEPS = [
@@ -15,6 +16,8 @@ const STEPS = [
 export default function WizardClient() {
   const [step, setStep] = useState(1);
   const [file, setFile] = useState<File | null>(null);
+  const [extraFiles, setExtraFiles] = useState<File[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
   const [ceilingHeight, setCeilingHeight] = useState("");
   const [unit, setUnit] = useState<"feet" | "meters">("feet");
   const [status, setStatus] = useState<"idle" | "uploading" | "error">("idle");
@@ -39,12 +42,18 @@ export default function WizardClient() {
     }
     setError(null);
     setStatus("uploading");
-    const result = await runClientRoomAnalysis({ file, unit, ceilingHeight });
+    const result = await runClientRoomAnalysis({
+      file,
+      extraFiles,
+      unit,
+      ceilingHeight,
+    });
     if (!result.ok) {
       setStatus("error");
       setError(result.error);
       return;
     }
+    setNotice(result.notice);
     setStatus("idle");
     setStep(4);
   }
@@ -126,18 +135,84 @@ export default function WizardClient() {
             <div className="grid gap-5">
               <h2 className="text-lg font-semibold text-white">1. Choose a room photo</h2>
               <p className="copy-readable text-[15px]">
-                Pick one image showing the room. Two walls and a ceiling line help
-                the model size the space.
+                One photo is enough. Choose a shot with two walls and where the
+                ceiling meets the floor. A second angle is optional: the display
+                wall, then the opposite corner.
               </p>
               <input
                 type="file"
                 accept="image/*"
+                multiple
                 onChange={(e) => {
-                  setFile(e.target.files?.[0] ?? null);
+                  const picked = Array.from(e.target.files ?? []);
+                  e.target.value = "";
+                  if (picked.length === 0) return;
+                  if (file && picked.length === 1) {
+                    const next = replacePrimary({ primary: file, extras: extraFiles }, picked[0]);
+                    setFile(next.primary);
+                    setExtraFiles(next.extras);
+                  } else {
+                    const { next } = addRoomPhotos(
+                      file && picked.length > 1 ? { primary: null, extras: [] } : { primary: file, extras: extraFiles },
+                      picked,
+                    );
+                    setFile(next.primary);
+                    setExtraFiles(next.extras);
+                  }
                   setError(null);
                 }}
                 className="block w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.92)] px-3 py-2.5 text-[15px] text-[hsl(210_40%_96%)] outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-[hsl(277_90%_65%/0.14)] file:px-3 file:py-2 file:font-semibold"
               />
+              <label className="grid gap-2 text-[15px] text-[hsl(215_20%_78%)]">
+                Add another angle (optional)
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => {
+                    const picked = Array.from(e.target.files ?? []);
+                    e.target.value = "";
+                    const { next } = addRoomPhotos({ primary: file, extras: extraFiles }, picked);
+                    setFile(next.primary);
+                    setExtraFiles(next.extras);
+                    setError(null);
+                  }}
+                  className="block w-full rounded-xl border border-[hsl(217_33%_25%)] bg-[hsl(217_33%_14%/0.92)] px-3 py-2.5 text-[15px] text-[hsl(210_40%_96%)] outline-none file:mr-4 file:rounded-lg file:border-0 file:bg-[hsl(277_90%_65%/0.14)] file:px-3 file:py-2 file:font-semibold"
+                />
+              </label>
+              {extraFiles.length > 0 ? (
+                <ul className="grid gap-2 text-[14px] text-[hsl(215_20%_78%)]">
+                  {extraFiles.map((extra, index) => (
+                    <li key={`${extra.name}-${index}`} className="flex flex-wrap items-center gap-2">
+                      <span>{extra.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = replacePrimary(
+                            { primary: file, extras: extraFiles },
+                            extra,
+                          );
+                          setFile(next.primary);
+                          setExtraFiles(next.extras);
+                        }}
+                        className="rounded-lg border border-[hsl(217_33%_25%)] px-2 py-1 text-[13px]"
+                      >
+                        Use as main
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExtraFiles((prev) => prev.filter((_, i) => i !== index))
+                        }
+                        className="rounded-lg border border-[hsl(217_33%_25%)] px-2 py-1 text-[13px]"
+                        aria-label={`Remove extra angle ${index + 1}`}
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               <div className="aspect-video w-full overflow-hidden rounded-2xl border border-[hsl(217_33%_25%)] bg-black/40">
                 {previewUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -287,6 +362,7 @@ export default function WizardClient() {
           {step === 4 ? (
             <div className="grid gap-5 text-center sm:text-left">
               <h2 className="text-lg font-semibold text-white">4. Open your results</h2>
+              {notice ? <p className="copy-readable text-[15px]">{notice}</p> : null}
               <p className="copy-readable text-[15px]">
                 Analysis is saved in this browser tab. The next page has dimensions,
                 recommendations, and downloads for{" "}

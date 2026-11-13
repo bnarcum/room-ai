@@ -1,6 +1,6 @@
 ## SnapRoom
 
-Public, anonymous web app that lets anyone upload a single room photo and get:
+Public, anonymous web app that lets anyone upload a room photo — one is enough, and up to two more angles are optional — and get:
 
 - Rough **length / width / height** estimates (with a confidence score)
 - Practical improvement suggestions across:
@@ -53,7 +53,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## Notes / limitations
 
-- Dimension estimates from a **single photo** are inherently rough. Including a reference object (credit card, paper, or known ceiling height) improves the estimate.
+- Dimension estimates from a photo are inherently rough. A second angle, a reference object (door, table, chair), or a known ceiling height improves the estimate. One photo is still a complete analysis.
 - v1 does not store photos server-side; it sends the image to the model for analysis and returns structured JSON.
 - **Anthropic**: if you set `ANTHROPIC_MODEL` on Vercel, use a current API model id (for example `claude-sonnet-4-6`). Old aliases such as `claude-3-5-sonnet-latest` often stop working when Anthropic retires them.
 - **Overload**: if the primary Claude model hits “high demand”, the API retries with backoff and can use **`ANTHROPIC_FALLBACK_MODEL`** (default Haiku).

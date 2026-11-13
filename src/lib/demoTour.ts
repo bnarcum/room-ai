@@ -1,4 +1,4 @@
-export const DEMO_TOUR_VERSION = "v1.8";
+export const DEMO_TOUR_VERSION = "v1.9";
 export const DEMO_TOUR_STORAGE_KEY = "snaproom-demo-tour-v1";
 
 export type DemoTourPlace = "top" | "bottom" | "left" | "right" | "center";
@@ -21,7 +21,7 @@ export const DEMO_TOUR_STEPS: DemoTourStep[] = [
     target: null,
     place: "center",
     title: "SnapRoom",
-    body: "You're on a deal and the customer sends a room photo. SnapRoom turns one image into a room read, directional size ranges, five recs, and exports to Collab Experience and Workspace Designer.",
+    body: "You're on a deal and the customer sends a room photo. One photo is enough for a room read, directional size ranges, five recs, and exports. A second angle is optional.",
   },
   {
     id: "upload",
@@ -29,7 +29,7 @@ export const DEMO_TOUR_STEPS: DemoTourStep[] = [
     target: "#tour-upload",
     place: "right",
     title: "Upload a room photo",
-    body: "Choose a photo showing at least two walls and where the ceiling meets the floor. The preview confirms you picked the right image before you run analysis.",
+    body: "Choose a photo with at least two walls and where the ceiling meets the floor. Under it, add another angle if you have one: the display wall, then the opposite corner. One photo still runs the analysis.",
   },
   {
     id: "options",
@@ -45,7 +45,7 @@ export const DEMO_TOUR_STEPS: DemoTourStep[] = [
     target: "#tour-privacy",
     place: "top",
     title: "Privacy in v1",
-    body: "SnapRoom does not store your photo server-side in v1 — it's sent only for the model request, then discarded.",
+    body: "SnapRoom does not store your photos server-side in v1 — they are sent only for the model request, then discarded.",
   },
   {
     id: "analyze",
@@ -53,7 +53,7 @@ export const DEMO_TOUR_STEPS: DemoTourStep[] = [
     target: "#tour-analyze",
     place: "top",
     title: "Analyze photo",
-    body: "Click Next to run analysis on the demo conference photo — Vision AI reads room geometry and layout, then opens Results.",
+    body: "Click Next to open the sample conference render. That result is scripted so the demo still works if the model is unavailable.",
     waitForResults: true,
   },
   {
@@ -94,7 +94,7 @@ export const DEMO_TOUR_STEPS: DemoTourStep[] = [
     target: null,
     place: "center",
     title: "That's SnapRoom",
-    body: "One photo in. Room read, directional size, five recs, then Designer or Collab Experience.",
+    body: "One photo is enough. Room read, directional size, five recs, then Designer or Collab Experience. Add another angle when you have one.",
   },
 ];
 

@@ -2,7 +2,9 @@ import type { RoomAnalysis } from "@/lib/roomAnalysis";
 import {
   clearRoomPhotoPreviews,
   saveRoomAnalysisPayload,
+  saveRoomPhotoCount,
   saveRoomPhotoPreview,
+  saveRoomUploadNotice,
 } from "@/lib/resultStorage";
 
 const DEMO_CONFERENCE_PHOTO = "/demo/conference-room.png";
@@ -137,6 +139,8 @@ async function demoConferencePhotoDataUrl(): Promise<string | null> {
 export async function seedDemoAnalysisForTour(): Promise<boolean> {
   const saved = saveRoomAnalysisPayload(DEMO_TOUR_ANALYSIS);
   clearRoomPhotoPreviews();
+  saveRoomPhotoCount(1);
+  saveRoomUploadNotice(null);
   const dataUrl = await demoConferencePhotoDataUrl();
   if (dataUrl?.startsWith("data:image/")) saveRoomPhotoPreview(dataUrl);
   return saved;

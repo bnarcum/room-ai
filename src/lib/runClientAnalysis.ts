@@ -1,8 +1,11 @@
 import { preparePhotoForUpload, preparePhotosForUpload } from "@/lib/prepareClientPhoto";
+import { uploadTrimNotice } from "@/lib/roomPhotoSet";
 import {
   saveRoomAnalysisPayload,
   saveRoomExtraPhotoThumbnails,
+  saveRoomPhotoCount,
   saveRoomPhotoThumbnail,
+  saveRoomUploadNotice,
 } from "@/lib/resultStorage";
 
 type AnalyzeResponse =
@@ -35,8 +38,9 @@ export async function runClientRoomAnalysis(input: {
   extraFiles?: File[];
   unit: "feet" | "meters";
   ceilingHeight: string;
-}): Promise<{ ok: true } | { ok: false; error: string }> {
+}): Promise<{ ok: true; notice: string | null } | { ok: false; error: string }> {
   const extras = (input.extraFiles ?? []).slice(0, 2);
+  const requested = 1 + extras.length;
   let uploadFiles: File[];
   try {
     uploadFiles = extras.length
@@ -62,6 +66,8 @@ export async function runClientRoomAnalysis(input: {
     }
   }
 
+  let notice = uploadTrimNotice(requested, uploadFiles.length);
+
   let res = await post(uploadFiles);
   if (!res) {
     return { ok: false, error: "Network error while uploading. Please try again." };
@@ -70,6 +76,7 @@ export async function runClientRoomAnalysis(input: {
   if (res.status === 413 && uploadFiles.length > 2) {
     try {
       uploadFiles = await preparePhotosForUpload(uploadFiles.slice(0, 2));
+      notice = uploadTrimNotice(requested, uploadFiles.length);
     } catch (e) {
       return {
         ok: false,
@@ -105,6 +112,8 @@ export async function runClientRoomAnalysis(input: {
 
   await saveRoomPhotoThumbnail(uploadFiles[0]);
   await saveRoomExtraPhotoThumbnails(uploadFiles.slice(1));
+  saveRoomPhotoCount(uploadFiles.length);
+  saveRoomUploadNotice(notice);
 
   if (!saveRoomAnalysisPayload(json)) {
     return {
@@ -114,5 +123,5 @@ export async function runClientRoomAnalysis(input: {
     };
   }
 
-  return { ok: true };
+  return { ok: true, notice };
 }

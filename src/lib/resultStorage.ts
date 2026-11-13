@@ -1,6 +1,8 @@
 export const ROOM_ANALYSIS_STORAGE_KEY = "room-ai-analysis-v1";
 export const ROOM_PHOTO_STORAGE_KEY = "room-ai-photo-v1";
 export const ROOM_EXTRA_PHOTOS_STORAGE_KEY = "room-ai-photos-extra-v1";
+export const ROOM_PHOTO_COUNT_KEY = "room-ai-photo-count-v1";
+export const ROOM_UPLOAD_NOTICE_KEY = "room-ai-upload-notice-v1";
 
 /** Skip extras if the JSON payload would crowd sessionStorage (~5 MiB typical). */
 const EXTRA_PREVIEWS_MAX_CHARS = 1_800_000;
@@ -41,8 +43,52 @@ export function clearRoomPhotoPreviews(): void {
   try {
     sessionStorage.removeItem(ROOM_PHOTO_STORAGE_KEY);
     sessionStorage.removeItem(ROOM_EXTRA_PHOTOS_STORAGE_KEY);
+    sessionStorage.removeItem(ROOM_PHOTO_COUNT_KEY);
+    sessionStorage.removeItem(ROOM_UPLOAD_NOTICE_KEY);
   } catch {
     /* ignore quota / private mode */
+  }
+}
+
+export function saveRoomPhotoCount(count: number): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(ROOM_PHOTO_COUNT_KEY, String(count));
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+export function loadRoomPhotoCount(): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(ROOM_PHOTO_COUNT_KEY);
+    if (!raw) return null;
+    const count = Number(raw);
+    if (!Number.isInteger(count) || count < 0 || count > 3) return null;
+    return count;
+  } catch {
+    return null;
+  }
+}
+
+export function saveRoomUploadNotice(notice: string | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (!notice) sessionStorage.removeItem(ROOM_UPLOAD_NOTICE_KEY);
+    else sessionStorage.setItem(ROOM_UPLOAD_NOTICE_KEY, notice);
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+export function loadRoomUploadNotice(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(ROOM_UPLOAD_NOTICE_KEY);
+    return raw && raw.trim() ? raw : null;
+  } catch {
+    return null;
   }
 }
 

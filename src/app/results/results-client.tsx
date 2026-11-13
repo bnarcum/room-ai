@@ -38,10 +38,13 @@ import {
   resultsSizeCaption,
   resultsVerdict,
 } from "@/lib/roomSizing";
+import { lowConfidenceAngleHint, photoCountLine } from "@/lib/roomPhotoSet";
 import {
   loadRoomAnalysisPayload,
   loadRoomExtraPhotoPreviews,
+  loadRoomPhotoCount,
   loadRoomPhotoPreview,
+  loadRoomUploadNotice,
 } from "@/lib/resultStorage";
 import { buildWebexDesignerSummaryUrl } from "@/lib/webexDesignerQuickUrl";
 
@@ -80,6 +83,8 @@ export default function ResultsClient() {
   const [ready, setReady] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [extraPreviews, setExtraPreviews] = useState<string[]>([]);
+  const [storedPhotoCount, setStoredPhotoCount] = useState<number | null>(null);
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [heroSrc, setHeroSrc] = useState<string | null>(null);
   const [hoveredKey, setHoveredKey] = useState<FocusRegionKey | null>(null);
   const [pinnedKey, setPinnedKey] = useState<FocusRegionKey | null>(null);
@@ -104,6 +109,10 @@ export default function ResultsClient() {
       const storedExtras = tourActive ? [] : loadRoomExtraPhotoPreviews();
       setPhotoPreview(storedPhoto);
       setExtraPreviews(storedExtras);
+      setStoredPhotoCount(
+        tourActive ? 1 : dataParam ? null : loadRoomPhotoCount(),
+      );
+      setUploadNotice(tourActive || dataParam ? null : loadRoomUploadNotice());
       setHeroSrc(storedPhoto);
     } catch {
       setDecoded(null);
@@ -123,6 +132,13 @@ export default function ResultsClient() {
 
   const analysis =
     decoded && decoded.ok ? parseAnalysis(decoded.data) : null;
+  const readCount =
+    storedPhotoCount ??
+    (photoPreview ? 1 + extraPreviews.length : extraPreviews.length);
+  const countLine = photoCountLine(readCount);
+  const angleHint = analysis
+    ? lowConfidenceAngleHint(analysis.dimensions.confidence, readCount)
+    : null;
   const meta = decoded && decoded.ok ? decoded.meta : null;
   const parseFailed = Boolean(decoded && decoded.ok && !analysis);
 
@@ -335,6 +351,17 @@ export default function ResultsClient() {
                   <p className="results-verdict" data-testid="results-verdict">
                     {resultsVerdict(analysis)}
                   </p>
+                  {countLine ? (
+                    <p className="results-photo-count" data-testid="results-photo-count">
+                      {countLine}
+                    </p>
+                  ) : null}
+                  {uploadNotice ? (
+                    <p className="results-photo-count">{uploadNotice}</p>
+                  ) : null}
+                  {angleHint ? (
+                    <p className="results-photo-count">{angleHint}</p>
+                  ) : null}
                   {resultsSeenLine(analysis) ? (
                     <p className="results-seen" data-testid="results-seen">
                       <span className="results-seen-label">Seen</span>
